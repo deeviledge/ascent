@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ascent Log</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E9EBE4">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --paper:#E9EBE4; --card:#F2F4EE; --edge:#C9D1C7; --line:#DFE4DC;
+    --ink:#13303A; --soft:#5B7480; --teal:#2A7F8F; --amber:#D99B22; --boss:#B4442E;
+    --mono: ui-monospace,"Roboto Mono","SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; background:var(--paper); color:var(--ink);
+    font-family:system-ui,-apple-system,"Noto Sans JP","Hiragino Sans",sans-serif;
+    -webkit-text-size-adjust:100%;}
+  body{padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
+  #app{max-width:540px; margin:0 auto; padding:18px 16px 48px;}
+  button,input{font-family:inherit; color:var(--ink); font-size:100%;}
+  button{cursor:pointer;}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--teal); outline-offset:2px;}
+  input[type=number]{font-family:var(--mono);}
+
+  .head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px;}
+  .brand{letter-spacing:.18em; font-size:12px; color:var(--soft); font-weight:700;}
+  .wlabel{font-size:12px; color:var(--soft); display:flex; align-items:center; gap:5px;}
+  .wlabel input{width:54px; padding:4px 6px; border:1px solid var(--edge); background:var(--card);
+    border-radius:3px; font-size:13px; text-align:right;}
+
+  .hero{display:flex; gap:18px; background:var(--card); border:1px solid var(--edge);
+    border-radius:4px; padding:20px 18px;}
+  .bar{position:relative; width:24px; height:300px; flex:0 0 auto; background:var(--line); border-radius:2px;}
+  .fill{position:absolute; left:0; right:0; bottom:0; border-radius:2px;
+    background:linear-gradient(180deg,var(--teal),#1D5A66); transition:height .7s cubic-bezier(.2,.7,.2,1);}
+  .tick{position:absolute; left:-4px; right:-4px; height:1px;}
+  .ranks{flex:1; position:relative; height:300px;}
+  .rank{position:absolute; left:0; right:0; display:flex; align-items:baseline; gap:7px;}
+  .rank .m{font-family:var(--mono); font-size:11px; width:42px; text-align:right;
+    font-variant-numeric:tabular-nums; color:var(--soft);}
+  .rank .n{font-size:12px; color:var(--soft);}
+  .rank.done .m{color:var(--amber);} .rank.done .n{color:var(--ink); font-weight:500;}
+  .rank.next .n{color:var(--teal); font-weight:700; font-size:13.5px;}
+  .clear{font-size:9px; color:var(--amber); letter-spacing:.12em; font-weight:700;}
+
+  .now{padding:16px 2px 2px;}
+  .big{font-family:var(--mono); font-size:40px; font-weight:600; letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;}
+  .unit{font-size:15px; color:var(--soft); margin-left:7px;}
+  .nx{font-size:13px; color:var(--soft); margin-top:3px;} .nx b{color:var(--teal);}
+  .stats{font-size:12px; color:var(--soft); margin-top:7px; display:flex; gap:13px; flex-wrap:wrap;}
+
+  .tabs{display:flex; gap:4px; margin:16px 0 12px;}
+  .tabs button{flex:1; padding:10px 0; font-size:13px; font-weight:600; border:1px solid var(--edge);
+    border-radius:3px; background:transparent; color:var(--soft);}
+  .tabs button.on{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .panel{background:var(--card); border:1px solid var(--edge); border-radius:4px; padding:14px;}
+  .chips{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;}
+  .chip{padding:7px 12px; font-size:12.5px; border:1px solid var(--edge); border-radius:999px;
+    background:transparent;}
+  .chip.on{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .spot{width:100%; text-align:left; display:flex; align-items:center; gap:9px; padding:10px 11px;
+    background:var(--paper); border:1px solid var(--edge); border-radius:3px; margin-bottom:5px;}
+  .spot.on{border-color:var(--teal); background:#E3EEEF;}
+  .spot .sn{flex:1; min-width:0;}
+  .spot .t{font-size:13.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .spot .s{font-size:10.5px; color:var(--soft); margin-top:2px;}
+  .spot .h{font-family:var(--mono); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums;}
+  .spot .h span{font-size:9.5px; color:var(--soft);}
+
+  .note{font-size:11.5px; color:var(--soft); line-height:1.65; margin:10px 2px 12px;
+    padding-left:9px; border-left:2px solid var(--edge);}
+
+  .seg{display:flex; align-items:center; gap:9px; padding:9px 10px; border:1px solid var(--edge);
+    border-radius:3px; margin-bottom:5px; background:var(--paper);}
+  .seg.pick{background:#E3EEEF; border-color:var(--teal);}
+  .seg input[type=checkbox]{width:17px; height:17px; accent-color:var(--teal); flex:0 0 auto;}
+  .seg .sl{flex:1; min-width:0; font-size:12.5px;}
+  .seg .sh{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums;}
+  .badge{font-size:9.5px; padding:2px 5px; border-radius:2px; font-weight:700; letter-spacing:.04em;}
+  .b-meas{background:var(--teal); color:#fff;}
+  .b-conf{background:var(--ink); color:var(--paper);}
+  .b-der{background:var(--line); color:var(--soft);}
+  .b-est{background:#F5E3BD; color:#7A5A0A;}
+  .paid{font-size:9.5px; color:var(--boss); border:1px solid var(--boss); border-radius:2px; padding:1px 4px;}
+
+  .mini{display:flex; gap:5px; margin-bottom:10px;}
+  .mini button{flex:1; padding:6px 0; font-size:11.5px; border:1px solid var(--edge);
+    border-radius:3px; background:transparent; color:var(--soft);}
+
+  .reps{display:flex; align-items:center; gap:9px; margin:12px 0;}
+  .reps .lbl{font-size:13px; color:var(--soft);}
+  .step{width:36px; height:36px; border:1px solid var(--edge); background:var(--paper);
+    border-radius:3px; font-size:18px; line-height:1;}
+  .reps input{width:58px; padding:8px; border:1px solid var(--edge); border-radius:3px;
+    background:var(--paper); font-size:16px; text-align:center;}
+  .rt{margin-left:auto; font-size:12.5px; color:var(--soft); display:flex; align-items:center; gap:5px;}
+  .rt input{accent-color:var(--teal); width:16px; height:16px;}
+  .save{width:100%; padding:14px 0; background:var(--ink); color:var(--paper); border:none;
+    border-radius:3px; font-size:14.5px; font-weight:700;}
+  .save[disabled]{background:var(--line); color:var(--soft);}
+  .kcal{text-align:center; font-size:11.5px; color:var(--soft); margin-top:7px;}
+
+  .setrow{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .setrow label{font-size:12.5px; color:var(--soft); flex:1;}
+  .setrow input{width:78px; padding:7px 8px; border:1px solid var(--edge); border-radius:3px;
+    background:var(--paper); font-size:13.5px; text-align:right;}
+  .setrow .u{font-size:11.5px; color:var(--soft); width:26px;}
+
+  .ed{border:1px solid var(--teal); border-radius:4px; padding:13px; margin:-2px 0 8px; background:var(--card);}
+  .edh{font-size:11px; font-weight:700; letter-spacing:.1em; color:var(--soft); margin:12px 0 7px;}
+  .edh:first-child{margin-top:0;}
+  .erow{border:1px solid var(--edge); border-radius:3px; padding:9px 10px; margin-bottom:6px; background:var(--paper);}
+  .erow .top{display:flex; align-items:center; gap:7px; margin-bottom:7px;}
+  .erow .top .l{flex:1; font-size:12.5px; font-weight:500;}
+  .erow .ins{display:flex; gap:6px;}
+  .erow .ins > div{flex:1;}
+  .erow .ins span{display:block; font-size:9.5px; color:var(--soft); margin-bottom:2px;}
+  .erow .ins input{width:100%; padding:6px 7px; border:1px solid var(--edge); border-radius:3px;
+    background:var(--card); font-size:13px; text-align:right;}
+  .hint{font-size:10.5px; color:var(--teal); margin-top:6px; display:flex; align-items:center; gap:7px;}
+  .hint button{border:1px solid var(--teal); background:transparent; color:var(--teal);
+    border-radius:2px; padding:2px 7px; font-size:10.5px;}
+  .apply{width:100%; padding:9px 0; border:1px solid var(--ink); background:transparent;
+    border-radius:3px; font-size:12.5px; font-weight:600; margin-top:2px;}
+
+  .row{display:flex; align-items:center; gap:11px; padding:10px 11px; background:var(--card);
+    border:1px solid var(--edge); border-radius:3px; margin-bottom:5px;}
+  .row .mark{width:3px; align-self:stretch; border-radius:2px;}
+  .row .body{flex:1; min-width:0;}
+  .row .nm{font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row .sub{font-size:10.5px; color:var(--soft); font-family:var(--mono);}
+  .row .val{font-family:var(--mono); font-size:14.5px; font-weight:600; font-variant-numeric:tabular-nums;}
+  .row .val span{font-size:9.5px; color:var(--soft);}
+  .row .del{border:none; background:transparent; color:var(--soft); font-size:18px; padding:0 2px;}
+  .empty{background:var(--card); border:1px dashed var(--edge); border-radius:4px;
+    padding:32px 18px; text-align:center; color:var(--soft); font-size:13px; line-height:1.8;}
+  .foot{margin-top:16px; font-size:10.5px; color:var(--soft); line-height:1.7;}
+
+  #flash{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(22px + env(safe-area-inset-bottom));
+    padding:12px 20px; border-radius:999px; font-size:13.5px; font-weight:700; white-space:nowrap;
+    background:var(--ink); color:var(--paper); opacity:0; pointer-events:none; transition:opacity .25s; z-index:9;}
+  #flash.show{opacity:1;} #flash.rank{background:var(--amber); color:#241A00;}
+  #flash.error{background:var(--boss); color:#fff;}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="flash"></div>
+<script src="seed.js"></script>
+<script>
+const RANKS=[{m:300,name:"あべのハルカス"},{m:599,name:"高尾山"},{m:1450,name:"富士山 五合目→山頂"},
+ {m:3776,name:"富士山 標高ぜんぶ"},{m:5895,name:"キリマンジャロ"},{m:8848,name:"エベレスト"}];
+const BOUNDS=[0,...RANKS.map(r=>r.m)];
+const CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
+const KEY="ascent:v2";
+
+let S={entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}};
+let ui={tab:"log",cat:"daily",spotId:null,sel:{},reps:1,round:true,edit:null,useCustom:false,cName:"",cM:""};
+
+/* ---------- 保存 ---------- */
+function load(){try{const r=localStorage.getItem(KEY); if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}
+  catch(e){flash("保存できませんでした。端末の空き容量をご確認ください。","error");}}
+const spotOf=id=>SEED.find(s=>s.id===id);
+const ovOf=id=>(S.over[id]=S.over[id]||{segs:{}});
+function segOv(sid,gid){const o=ovOf(sid); o.segs=o.segs||{}; return (o.segs[gid]=o.segs[gid]||{});}
+function today(){const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num=v=>{const n=parseFloat(v); return isFinite(n)&&n>0?n:null;};
+
+/* ---------- 3段カスケード解決 ---------- */
+// 優先: 区間の実測高さ > 区間の段数×蹴上げ > シードの確定高さ > 層数×階高 > 層数×基準階高
+function riseFor(sp,g){
+  const so=segOv(sp.id,g.id), o=ovOf(sp.id);
+  if(so.rise) return {v:so.rise,lv:"seg"};
+  if(o.rise)  return {v:o.rise,lv:"spot"};
+  return {v:S.baseRise,lv:"base"};
+}
+function floorHFor(sp){
+  const o=ovOf(sp.id);
+  if(o.floorH) return {v:o.floorH,lv:"spot"};
+  if(sp.floorH) return {v:sp.floorH,lv:"seed",src:sp.floorHSrc};
+  return {v:S.baseFloorH,lv:"base"};
+}
+function resolve(sp,g){
+  const so=segOv(sp.id,g.id);
+  if(so.height) return {m:so.height,conf:"実測",cls:"b-meas"};
+  if(so.steps){
+    const r=riseFor(sp,g);
+    return {m:so.steps*r.v, conf:r.lv==="base"?"導出":"実測", cls:r.lv==="base"?"b-der":"b-meas"};
+  }
+  if(g.height!=null){
+    const c=g.src==="confirmed"?["確定","b-conf"]:g.src==="derived"?["導出","b-der"]:["推定","b-est"];
+    return {m:g.height,conf:c[0],cls:c[1]};
+  }
+  const f=floorHFor(sp), L=g.layers||1;
+  if(f.lv==="spot") return {m:L*f.v,conf:"導出",cls:"b-der"};
+  if(f.lv==="seed") return {m:L*f.v,conf:f.src==="derived"?"導出":"確定",cls:f.src==="derived"?"b-der":"b-conf"};
+  return {m:L*f.v,conf:"推定",cls:"b-est"};
+}
+const spotTotal=sp=>sp.segs.reduce((s,g)=>s+resolve(sp,g).m,0);
+function backRise(sp,g){ // 高さが確定していて段数を測った区間 → 蹴上げが逆算できる
+  const so=segOv(sp.id,g.id);
+  const h=so.height||(g.height!=null?g.height:null);
+  if(h&&so.steps) return h/so.steps;
+  return null;
+}
+
+/* ---------- 画面 ---------- */
+const pos=t=>{if(t>=8848)return 1;
+  for(let i=0;i<6;i++){if(t<BOUNDS[i+1])return (i+(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i]))/6;} return 1;};
+const kcalOf=e=>Math.round(S.weight*e.meters*0.01*(e.round?1.3:1));
+let ft; function flash(msg,type){const el=document.getElementById("flash");
+  el.textContent=(type==="rank"?"🏁 ":"")+msg; el.className="show "+(type||"");
+  clearTimeout(ft); ft=setTimeout(()=>el.className="",2600);}
+const r1=n=>Math.round(n*10)/10;
+
+function render(){
+  const total=S.entries.reduce((s,e)=>s+e.meters,0);
+  const tk=S.entries.reduce((s,e)=>s+kcalOf(e),0);
+  const idx=RANKS.findIndex(r=>total<r.m), cur=idx===-1?RANKS[5]:RANKS[idx];
+  const cleared=idx===-1?6:idx, remain=idx===-1?0:cur.m-total;
+  const mo=today().slice(0,7), me=S.entries.filter(e=>e.date.slice(0,7)===mo);
+  const moM=me.reduce((s,e)=>s+e.meters,0), moD=new Set(me.map(e=>e.date)).size;
+
+  let body="";
+  if(ui.tab==="log") body=viewLog();
+  else if(ui.tab==="history") body=viewHistory();
+  else body=viewSpots();
+
+  document.getElementById("app").innerHTML=`
+  <div class="head"><div class="brand">ASCENT LOG</div>
+    <label class="wlabel">体重<input id="w" type="number" inputmode="decimal" value="${S.weight}">kg</label></div>
+  <div class="hero">
+    <div class="bar"><div class="fill" style="height:${pos(total)*100}%"></div>
+      ${RANKS.map((r,i)=>`<div class="tick" style="bottom:${(i+1)/6*100}%;background:${total>=r.m?"var(--amber)":"var(--edge)"}"></div>`).join("")}</div>
+    <div class="ranks">${RANKS.map((r,i)=>{const d=total>=r.m,n=!d&&r.m===cur.m;
+      return `<div class="rank ${d?"done":""} ${n?"next":""}" style="bottom:calc(${(i+1)/6*100}% - 9px)">
+        <span class="m">${r.m.toLocaleString()}</span><span class="n">${r.name}</span>
+        ${d?'<span class="clear">CLEAR</span>':""}</div>`;}).join("")}</div>
+  </div>
+  <div class="now">
+    <div><span class="big">${r1(total).toLocaleString()}</span><span class="unit">m 登った</span></div>
+    <div class="nx">${remain>0?`次は <b>${cur.name}</b>。あと ${r1(remain).toLocaleString()}m`:"全ランク制覇。ここから先は自分で目標を置く領域です。"}</div>
+    <div class="stats"><span>制覇 ${cleared}/6</span><span>累計 ${tk.toLocaleString()} kcal</span><span>今月 ${r1(moM).toLocaleString()}m / ${moD}日</span></div>
+  </div>
+  <div class="tabs">
+    <button data-tab="log" class="${ui.tab==="log"?"on":""}">記録</button>
+    <button data-tab="history" class="${ui.tab==="history"?"on":""}">履歴</button>
+    <button data-tab="spots" class="${ui.tab==="spots"?"on":""}">地点</button>
+  </div>${body}
+  <div class="foot">消費カロリー ＝ 体重 × 高さ × 0.01。下りは上りの約3割として計算しています。<br>
+  確定＝公表値 ／ 導出＝確定値からの計算 ／ 推定＝基準値からの仮置き ／ 実測＝自分で測った値。</div>`;
+  bind();
+}
+
+/* ---------- 記録タブ ---------- */
+function viewLog(){
+  const sp=ui.spotId?spotOf(ui.spotId):null;
+  const list=SEED.filter(s=>s.cat===ui.cat);
+  let seg="",sum=0,any=false;
+  if(sp){
+    seg=sp.segs.map(g=>{const r=resolve(sp,g),on=!!ui.sel[g.id]; if(on){sum+=r.m;any=true;}
+      return `<label class="seg ${on?"pick":""}">
+        <input type="checkbox" data-seg="${g.id}" ${on?"checked":""}>
+        <span class="sl">${esc(g.label)}${g.paid?' <span class="paid">入場券</span>':""}</span>
+        <span class="badge ${r.cls}">${r.conf}</span>
+        <span class="sh">${r1(r.m)}m</span></label>`;}).join("");
+    if(!sp.segs.length) seg=`<div class="empty">この地点はまだ区間が未登録です。<br>「地点」タブで区間を追加できます。</div>`;
+  }
+  const add=sum*(Number(ui.reps)||0);
+  const k=Math.round(S.weight*add*0.01*(ui.round?1.3:1));
+  return `<div class="panel">
+    <div class="chips">${CATS.map(([c,l])=>`<button class="chip ${ui.cat===c?"on":""}" data-cat="${c}">${l}</button>`).join("")}</div>
+    ${list.map(s=>{const t=spotTotal(s);
+      return `<button class="spot ${ui.spotId===s.id?"on":""}" data-spot="${s.id}">
+        <span class="sn"><span class="t">${esc(s.name)}</span>
+        <span class="s">${esc(s.area)}${s.min?` · 元住吉から${s.min}分`:""} · ${s.segs.length}区間</span></span>
+        <span class="h">${r1(t)}<span>m</span></span></button>`;}).join("")}
+    ${sp?`<div class="note">${esc(sp.note||"")}</div>
+      <div class="mini"><button id="selAll">全区間</button>
+        <button id="selFree">改札外のみ</button><button id="selNone">クリア</button></div>
+      ${seg}
+      <div class="reps"><span class="lbl">本数</span>
+        <button class="step" id="minus">−</button>
+        <input id="reps" type="number" inputmode="numeric" value="${ui.reps}">
+        <button class="step" id="plus">+</button>
+        <label class="rt"><input type="checkbox" id="rt" ${ui.round?"checked":""}>下りも歩いた</label></div>
+      <button class="save" id="add" ${any?"":"disabled"}>+${r1(add).toLocaleString()}m を記録</button>
+      <div class="kcal">約 ${k.toLocaleString()} kcal（体重${S.weight}kg${ui.round?"・下り込み":""}）</div>`
+    :`<div class="note">地点を選ぶと、登った区間だけを選んで記録できます。</div>`}
+  </div>`;
+}
+
+/* ---------- 地点タブ ---------- */
+function viewSpots(){
+  const list=SEED.filter(s=>s.cat===ui.cat);
+  return `<div class="panel">
+    <div class="edh">基準値（どこにも個別設定が無いときに使われます）</div>
+    <div class="setrow"><label>基準の蹴上げ（1段の高さ）</label>
+      <input id="bRise" type="number" inputmode="decimal" value="${Math.round(S.baseRise*1000)}"><span class="u">mm</span></div>
+    <div class="setrow"><label>基準の階高（1層の高さ）</label>
+      <input id="bFloor" type="number" inputmode="decimal" value="${S.baseFloorH}"><span class="u">m</span></div>
+    <div class="note">新高島駅で蹴上げを1回測ってここに入れると、未測定の全地点の精度が一段上がります。</div>
+  </div>
+  <div class="chips" style="margin-top:12px">${CATS.map(([c,l])=>`<button class="chip ${ui.cat===c?"on":""}" data-cat="${c}">${l}</button>`).join("")}</div>
+  ${list.map(s=>{const t=spotTotal(s), open=ui.edit===s.id;
+    return `<button class="spot ${open?"on":""}" data-edit="${s.id}">
+      <span class="sn"><span class="t">${esc(s.name)}</span>
+      <span class="s">${esc(s.area)} · ${s.segs.length}区間${s.totalM?` · 公表 ${s.totalM}m`:""}</span></span>
+      <span class="h">${r1(t)}<span>m</span></span></button>
+      ${open?editor(s):""}`;}).join("")}`;
+}
+function editor(sp){
+  const o=ovOf(sp.id), f=floorHFor(sp);
+  const steps=sp.totalSteps?`<div class="note">全区間の実測段数 ${sp.totalSteps}段（公表）。
+    現在の基準蹴上げ ${Math.round(S.baseRise*1000)}mm で計算すると全体 ${r1(sp.totalSteps*S.baseRise)}m になります。</div>`:"";
+  return `<div class="ed">
+    ${steps}
+    <div class="edh">この施設に一括適用</div>
+    <div class="setrow"><label>蹴上げ（全区間の1段）</label>
+      <input class="sIn" data-k="rise" type="number" inputmode="decimal" value="${o.rise?Math.round(o.rise*1000):""}" placeholder="${Math.round(S.baseRise*1000)}"><span class="u">mm</span></div>
+    <div class="setrow"><label>階高（1層の高さ）</label>
+      <input class="sIn" data-k="floorH" type="number" inputmode="decimal" value="${o.floorH||""}" placeholder="${r1(f.v)}"><span class="u">m</span></div>
+    <div class="edh">区間ごとに個別設定（入れた項目だけ上書きされます）</div>
+    ${sp.segs.map(g=>{const so=segOv(sp.id,g.id), r=resolve(sp,g), br=backRise(sp,g);
+      return `<div class="erow">
+        <div class="top"><span class="l">${esc(g.label)}</span>
+          <span class="badge ${r.cls}">${r.conf}</span>
+          <span class="sh" style="font-family:var(--mono);font-size:13px">${r1(r.m)}m</span></div>
+        <div class="ins">
+          <div><span>段数</span><input class="gIn" data-g="${g.id}" data-k="steps" type="number" inputmode="numeric" value="${so.steps||""}" placeholder="—"></div>
+          <div><span>蹴上げ mm</span><input class="gIn" data-g="${g.id}" data-k="rise" type="number" inputmode="decimal" value="${so.rise?Math.round(so.rise*1000):""}" placeholder="—"></div>
+          <div><span>高さ m</span><input class="gIn" data-g="${g.id}" data-k="height" type="number" inputmode="decimal" value="${so.height||""}" placeholder="—"></div>
+        </div>
+        ${br?`<div class="hint">高さと段数から逆算 → 蹴上げ ${Math.round(br*1000)}mm
+          <button data-base="${Math.round(br*1000)}">基準値にする</button></div>`:""}
+      </div>`;}).join("")}
+    <button class="apply" data-clear="${sp.id}">この施設の設定をすべて消す</button>
+  </div>`;
+}
+
+/* ---------- 履歴タブ ---------- */
+function viewHistory(){
+  if(!S.entries.length) return `<div class="empty">まだ記録がありません。<br>今日いちばん近い階段から始められます。</div>`;
+  return S.entries.map(e=>`<div class="row">
+    <div class="mark" style="background:${e.cat==="boss"?"var(--boss)":"var(--teal)"}"></div>
+    <div class="body"><div class="nm">${esc(e.name)}</div>
+      <div class="sub">${e.date.slice(5).replace("-","/")} · ${r1(e.unitM)}m × ${e.reps}${e.round?" · 往復":""} · ${kcalOf(e)}kcal</div></div>
+    <div class="val">${r1(e.meters).toLocaleString()}<span>m</span></div>
+    <button class="del" data-del="${e.id}" aria-label="削除">×</button></div>`).join("");
+}
+
+/* ---------- イベント ---------- */
+function bind(){
+  const $=id=>document.getElementById(id), q=s=>document.querySelectorAll(s);
+  $("w").onchange=e=>{S.weight=Number(e.target.value)||0; save(); render();};
+  q("[data-tab]").forEach(b=>b.onclick=()=>{ui.tab=b.dataset.tab; render();});
+  q("[data-cat]").forEach(b=>b.onclick=()=>{ui.cat=b.dataset.cat; ui.spotId=null; ui.edit=null; ui.sel={}; render();});
+  q("[data-del]").forEach(b=>b.onclick=()=>{S.entries=S.entries.filter(x=>String(x.id)!==b.dataset.del); save(); render();});
+
+  q("[data-spot]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.spot;
+    if(ui.spotId===id){ui.spotId=null; ui.sel={};}
+    else{ui.spotId=id; ui.sel={}; spotOf(id).segs.forEach(g=>ui.sel[g.id]=true);}
+    render();});
+  q("[data-seg]").forEach(b=>b.onchange=()=>{ui.sel[b.dataset.seg]=b.checked; render();});
+  if($("selAll"))  $("selAll").onclick =()=>{spotOf(ui.spotId).segs.forEach(g=>ui.sel[g.id]=true); render();};
+  if($("selFree")) $("selFree").onclick=()=>{spotOf(ui.spotId).segs.forEach(g=>ui.sel[g.id]=!g.paid); render();};
+  if($("selNone")) $("selNone").onclick=()=>{ui.sel={}; render();};
+  if($("minus")) $("minus").onclick=()=>{ui.reps=Math.max(1,Number(ui.reps)-1); render();};
+  if($("plus"))  $("plus").onclick =()=>{ui.reps=Number(ui.reps)+1; render();};
+  if($("reps"))  $("reps").onchange=e=>{ui.reps=Math.max(1,Number(e.target.value)||1); render();};
+  if($("rt"))    $("rt").onchange  =e=>{ui.round=e.target.checked; render();};
+  if($("add"))   $("add").onclick  =doAdd;
+
+  if($("bRise"))  $("bRise").onchange =e=>{const v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render();};
+  if($("bFloor")) $("bFloor").onchange=e=>{const v=num(e.target.value); if(v)S.baseFloorH=v; save(); render();};
+  q("[data-edit]").forEach(b=>b.onclick=()=>{ui.edit=ui.edit===b.dataset.edit?null:b.dataset.edit; render();});
+  q(".sIn").forEach(i=>i.onchange=e=>{const o=ovOf(ui.edit), k=i.dataset.k, v=num(e.target.value);
+    if(v==null) delete o[k]; else o[k]=k==="rise"?v/1000:v; save(); render();});
+  q(".gIn").forEach(i=>i.onchange=e=>{const so=segOv(ui.edit,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
+    if(v==null) delete so[k]; else so[k]=k==="rise"?v/1000:v; save(); render();});
+  q("[data-base]").forEach(b=>b.onclick=()=>{S.baseRise=Number(b.dataset.base)/1000; save();
+    flash("基準の蹴上げを "+b.dataset.base+"mm にしました"); render();});
+  q("[data-clear]").forEach(b=>b.onclick=()=>{delete S.over[b.dataset.clear]; save(); render();});
+}
+
+function doAdd(){
+  const sp=spotOf(ui.spotId); if(!sp) return;
+  const ids=sp.segs.filter(g=>ui.sel[g.id]).map(g=>g.id);
+  const unit=sp.segs.filter(g=>ui.sel[g.id]).reduce((s,g)=>s+resolve(sp,g).m,0);
+  const meters=unit*(Number(ui.reps)||0);
+  if(meters<=0){flash("区間と本数を選ぶと記録できます。","error"); return;}
+  const before=S.entries.reduce((s,e)=>s+e.meters,0);
+  S.entries.unshift({id:Date.now(),date:today(),spotId:sp.id,name:sp.name,segIds:ids,
+    unitM:unit,reps:Number(ui.reps),meters,round:ui.round,cat:sp.cat});
+  save();
+  const after=before+meters, hit=RANKS.filter(r=>before<r.m&&after>=r.m);
+  ui.reps=1; render();
+  if(hit.length) flash(hit[hit.length-1].name+" 到達","rank");
+  else flash(r1(meters).toLocaleString()+"m 記録しました");
+}
+
+load(); render();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
