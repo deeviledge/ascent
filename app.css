@@ -52,7 +52,7 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:var(--z-bar);display:flex;
   background:var(--ink-0);border-top:var(--hair) solid var(--hairline);
   padding-bottom:env(safe-area-inset-bottom);}
-.tabs button{flex:1;padding:10px 0 9px;display:grid;justify-items:center;gap:3px;
+.tabs button{flex:1;min-width:0;padding:10px 2px 9px;display:grid;justify-items:center;gap:3px;
   font-size:var(--f-2xs);color:var(--muted);font-weight:600;}
 .tabs button svg{width:20px;height:20px;}
 .tabs button.on{color:var(--orange);}
@@ -220,3 +220,21 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
   *{animation:none !important;transition-duration:120ms !important;}
   .ladder .sg i,.pb i{transition:none !important;}
 }
+
+/* ---- 今日 ---- */
+.today{display:flex;align-items:flex-end;gap:var(--s4);margin-bottom:var(--s3);}
+.today .t-main{flex:0 0 auto;}
+.today .t-main .v{font-size:var(--f-hero);font-weight:700;line-height:1;display:block;}
+.today .t-main .v i{font-style:normal;font-size:var(--f-lg);color:var(--muted);margin-left:4px;}
+.today .t-main .k{font-size:var(--f-2xs);color:var(--muted);display:block;margin-top:4px;}
+.today .t-sub{flex:1;display:grid;gap:var(--s2);}
+.today .t-sub .k{font-size:var(--f-2xs);color:var(--muted);display:block;}
+.today .t-sub .v{font-size:var(--f-lg);font-weight:700;}
+.today .t-sub .v i{font-style:normal;font-size:var(--f-xs);color:var(--muted);margin-left:3px;}
+.days{display:flex;align-items:flex-end;gap:4px;height:78px;}
+.days>div{flex:1;display:grid;justify-items:center;gap:4px;align-content:end;height:100%;}
+.days i{display:block;width:100%;max-width:26px;background:var(--cyan);border-radius:3px 3px 0 0;min-height:3px;}
+.days span{font-size:var(--f-2xs);color:var(--muted);}
+.days .now i{background:var(--orange);}
+.days .now span{color:var(--orange);font-weight:700;}
+.days.d14{height:88px;} .days.d14 i{max-width:18px;} .days.d14 span{font-size:9px;}

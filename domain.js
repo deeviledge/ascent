@@ -128,6 +128,24 @@ function allTimeStats(S){
   return {cur:c,prev:{m:0},span:span,dM:null,dK:null,dS:null,dD:null,
           rate:Math.round(c.days/span*100)};
 }
+/* 日単位の集計 */
+function dayStats(S,date){
+  return agg(S,S.entries.filter(function(e){return e.date===date;}));
+}
+function lastDays(S,n){
+  var out=[], d=new Date(); d.setDate(d.getDate()-(n-1));
+  for(var i=0;i<n;i++){
+    var k=ymd(d), a=dayStats(S,k);
+    out.push({date:k,dow:new Date(k+"T00:00:00").getDay(),m:a.m,kcal:a.kcal,steps:a.steps,n:a.n});
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function bestDay(S){
+  var m=byDate(S), best={date:null,m:0};
+  Object.keys(m).forEach(function(k){ if(m[k]>best.m) best={date:k,m:m[k]}; });
+  return best;
+}
 function byDate(S){ var m={};
   S.entries.forEach(function(e){ m[e.date]=(m[e.date]||0)+e.meters; }); return m; }
 function heatmap(S,weeks){
@@ -242,5 +260,5 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,life
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive};
+  streak:streak,achievements:achievements,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive};
 })(typeof window!=="undefined"?window:globalThis);

@@ -70,26 +70,28 @@ function render(){
   else if(ui.screen==="newspot") body=vNewSpot();
   else if(ui.screen==="settings") body=vSettings();
   $("app").innerHTML=header()+body;
-  $("bars").innerHTML=(ui.screen==="home"?repeatBar():"")+tabs();
+  $("bars").innerHTML=((ui.screen==="home"||ui.screen==="spots")?repeatBar():"")+tabs();
   bind();
 }
 
 function header(){
-  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",spots:"home"}[ui.screen];
+  var back={record:"home",spot:"spots",newspot:"spots",settings:"home"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
-    spots:"地点",spot:"地点の計測",newspot:"地点を追加",settings:"設定"}[ui.screen];
+    spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定"}[ui.screen];
   return '<div class="hd">'
     + (back?'<button class="ico" data-go="'+back+'" aria-label="戻る">'+icon("back")+'</button>':"")
     + '<div class="brand">'+esc(title)+(ui.screen==="home"?'<small>都市を、登れ。</small>':"")+'</div>'
     + '<button class="ico" id="thm" aria-label="表示を切り替える">'+icon(S.settings.theme==="light"?"moon":"sun")+'</button>'
-    + (ui.screen==="home"?'<button class="ico" data-go="spots" aria-label="地点">'+icon("map")+'</button>'
-       +'<button class="ico" data-go="settings" aria-label="設定">'+icon("gear")+'</button>':"")
+    + (ui.screen==="home"?'<button class="ico" data-go="settings" aria-label="設定">'+icon("gear")+'</button>':"")
     + '</div>';
 }
 function tabs(){
-  var T=[["home","ホーム","home"],["stats","分析","chart"],["history","履歴","history"]];
+  var T=[["home","ホーム","home"],["stats","分析","chart"],
+         ["spots","探索","map"],["history","履歴","history"]];
+  // 地点の詳細・追加から来たときも「探索」を点灯させる
+  var here={spot:"spots",newspot:"spots",record:"home",settings:"home"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
-    return '<button data-go="'+t[0]+'" class="'+(ui.screen===t[0]?"on":"")+'">'
+    return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
 }
 function repeatBar(){
@@ -121,9 +123,11 @@ function vHome(){
         return '<div class="sg '+(done?"done":"")+'"><i style="width:'+w+'%"></i></div>'; }).join("")
     + '</div><div class="ladderL"><span>制覇 '+k.cleared+'/6</span><span>探索 '+ex.done+'/'+ex.total+'</span></div>'
 
+    + todayCard()
+
     + '<div class="card"><h3>よく行く場所</h3><div class="grid">'
     + cards.map(function(s){ return spotCard(s,ex.visited); }).join("")
-    + '</div><button class="ghost" data-go="spots">＋ 別の場所を選ぶ</button></div>'
+    + '</div><button class="ghost" data-go="spots">＋ すべての地点から選ぶ</button></div>'
 
     + (ex.next.length?'<div class="card"><h3>まだ登っていない近場</h3>'
       + ex.next.map(function(s){ return '<button class="row" data-pick="'+s.id+'">'
@@ -131,6 +135,27 @@ function vHome(){
         + '<span class="sb">'+area(s)+(s.min?(area(s)?" · ":"")+"徒歩/電車 "+s.min+"分":"")+'</span></span>'
         + '<span class="vl num">'+fmt(D.spotTotal(S,s))+'<i>m</i></span></button>'; }).join("")
       + '</div>':"");
+}
+/* 今日の積み上げ。日々の手応えは週や生涯より先に見えるべき。 */
+function todayCard(){
+  var t=D.dayStats(S,D.today()), w=D.periodStats(S,7).cur;
+  var days=D.lastDays(S,7), mx=Math.max.apply(null,days.map(function(d){return d.m;}))||1;
+  var DOW=["日","月","火","水","木","金","土"];
+  return '<div class="card"><h3>今日</h3>'
+    + '<div class="today">'
+    +   '<div class="t-main"><span class="v num">'+fmt(t.m)+'<i>m</i></span>'
+    +     '<span class="k">'+(t.n?t.n+'本 記録':'まだ記録なし')+'</span></div>'
+    +   '<div class="t-sub"><div><span class="k">消費エネルギー</span>'
+    +     '<span class="v num">'+t.kcal.toLocaleString()+'<i>kcal</i></span></div>'
+    +     '<div><span class="k">のぼった段数</span>'
+    +     '<span class="v num">'+t.steps.toLocaleString()+'<i>段</i></span></div></div>'
+    + '</div>'
+    + '<div class="days">'+days.map(function(d,i){
+        var on=(i===days.length-1);
+        return '<div class="'+(on?"now":"")+'"><i style="height:'+Math.max(3,d.m/mx*54)+'px"></i>'
+          + '<span>'+DOW[d.dow]+'</span></div>'; }).join("")+'</div>'
+    + '<div class="note" style="margin-bottom:0">直近7日で '+fmt(w.m)+'m ・ '+w.kcal.toLocaleString()+'kcal ・ '+w.days+'日</div>'
+    + '</div>';
 }
 function area(s){ return (!s.area||s.area==="—")?"":esc(s.area); }
 function spotCard(s,visited){
@@ -191,11 +216,25 @@ function vStats(){
     + '<div><div class="k">記録した日</div><div class="v num">'+p.cur.days+'<i>日</i></div>'
     + '<span class="d">稼働率 '+p.rate+'%</span></div></div>'
 
+    + '<div class="note">脂肪換算 約 '+Math.round(D.fatG(p.cur.kcal,S))+' g（理論値・7,200kcal/kg）。'
+    + '単純なエネルギー換算による参考値で、実際の脂肪の増減を示すものではありません。</div>'
+
     + '<div class="card"><h3>現在の山</h3>'
     + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(k.tier.name)+'</div>'
     + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+k.tier.m.toLocaleString()+' m'
     + (k.remain>0?' — あと '+fmt(k.remain)+'m':' — 制覇')+'</div>'
     + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(k.inTier*100)+'%"></i></div></div>'
+
+    + '<div class="card"><h3>日別（直近14日）</h3><div class="days d14">'
+    + (function(){ var ds=D.lastDays(S,14), mx=Math.max.apply(null,ds.map(function(d){return d.m;}))||1;
+        return ds.map(function(d,i){
+          return '<div class="'+(i===ds.length-1?"now":"")+'" title="'+d.date+' '+fmt(d.m)+'m">'
+            + '<i style="height:'+Math.max(3,d.m/mx*64)+'px"></i>'
+            + '<span>'+d.date.slice(8)+'</span></div>'; }).join(""); })()
+    + '</div>'
+    + (function(){ var b=D.bestDay(S);
+        return b.date?'<div class="note" style="margin-bottom:0">最高単日 '+fmt(b.m)+'m（'+b.date.slice(5).replace("-","/")+'）</div>':''; })()
+    + '</div>'
 
     + '<div class="card"><h3>連続記録</h3>'
     + '<div class="bl"><span class="nm">いま</span><span class="vl num" style="font-weight:700">'+st.current+' 日</span></div>'
@@ -227,7 +266,11 @@ function vHistory(){
   S.entries.forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e); });
   return Object.keys(byDay).sort().reverse().map(function(dt){
     var list=byDay[dt], sum=list.reduce(function(a,e){return a+e.meters;},0);
-    return '<div class="card"><h3>'+dt.slice(5).replace("-","/")+' — '+fmt(sum)+'m</h3>'
+    var kc=list.reduce(function(a,e){return a+D.kcalOf(S,e);},0);
+    var st=list.reduce(function(a,e){return a+D.stepsOf(S,e);},0);
+    var DOW=["日","月","火","水","木","金","土"][new Date(dt+"T00:00:00").getDay()];
+    return '<div class="card"><h3>'+dt.slice(5).replace("-","/")+'（'+DOW+'） — '
+      + fmt(sum)+'m ・ '+kc.toLocaleString()+'kcal ・ '+st.toLocaleString()+'段</h3>'
       + list.map(function(e){
         return '<div class="row"><span class="mk '+(e.cat==="boss"?"boss":"")+'"></span>'
           + '<span class="bd"><span class="nm">'+esc(e.name)+'</span>'
