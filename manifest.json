@@ -1,13 +1,13 @@
 {
-  "name": "Ascent Log",
-  "short_name": "Ascent",
-  "description": "階段と山の累積標高を記録する",
+  "name": "VERTEX — Ascent Log",
+  "short_name": "VERTEX",
+  "description": "都市を、登れ。獲得標高を記録する",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#E9EBE4",
-  "theme_color": "#E9EBE4",
+  "background_color": "#06121A",
+  "theme_color": "#06121A",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

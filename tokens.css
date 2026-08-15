@@ -1,0 +1,96 @@
+/* tokens.css — Ascent Log / VERTEX
+   ダークが既定。data-theme="light" で屋外用の明モードに切り替わる。
+   色を直書きせず、必ずここの変数を経由すること。 */
+
+:root{
+  /* --- 面 --- */
+  --ink-0:#06121A;          /* 最背面 */
+  --ink-1:#0B1220;          /* 画面背景 */
+  --ink-2:#142033;          /* 沈んだ面 */
+  --surface:#16212E;        /* カード */
+  --surface-2:#1E2B3B;      /* カード内の入れ子 */
+  --hairline:#26374A;       /* 1px 罫 */
+  --hairline-2:#33485F;     /* 強めの罫 */
+
+  /* --- 文字 --- */
+  --text:#F2F5F7;
+  --text-2:#B9C7D4;
+  --muted:#8296A8;
+
+  /* --- 意味色 --- */
+  --orange:#FF6A00;         /* 主アクション・進行中 */
+  --orange-dim:rgba(255,106,0,.16);
+  --green:#22C55E;          /* 完了・実測 */
+  --cyan:#22D8EE;           /* 情報・導出 */
+  --blue:#3A8DFF;           /* 確定 */
+  --amber:#F59E0B;          /* 推定・注意 */
+  --danger:#EF4444;         /* エラーのみ */
+
+  /* --- 確度（線種と併用すること。色だけに意味を持たせない） --- */
+  --conf-measured:var(--green);
+  --conf-confirmed:var(--blue);
+  --conf-derived:var(--cyan);
+  --conf-estimated:var(--amber);
+
+  /* --- 山 --- */
+  --ridge-hi:#5C7C99;
+  --ridge-lo:#111F30;
+  --sky:#07131D;
+  --contour:#7B91A7;
+  --contour-op:.26;
+  --topo-op:.05;
+
+  /* --- 形 --- */
+  --r-sm:6px; --r-md:12px; --r-lg:18px;
+  --hair:1px;
+
+  /* --- 余白 --- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+
+  /* --- 文字サイズ --- */
+  --f-hero:52px; --f-xl:30px; --f-lg:20px; --f-md:15px;
+  --f-sm:13px; --f-xs:11px; --f-2xs:10px;
+
+  /* --- 書体（外部フォント禁止） --- */
+  --font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+  --font-num:ui-monospace,SFMono-Regular,"Roboto Mono",Menlo,Consolas,monospace;
+
+  /* --- 動き --- */
+  --t-fast:120ms; --t-base:220ms; --t-slow:560ms;
+  --ease:cubic-bezier(.2,.7,.2,1);
+
+  --shadow:0 12px 32px rgba(0,0,0,.42);
+  --z-bar:40; --z-sheet:60; --z-toast:80;
+}
+
+/* 屋外モード。直射日光下でのコントラストを優先し、彩度を落として明度差を稼ぐ。 */
+:root[data-theme="light"]{
+  --ink-0:#DDE3E6;
+  --ink-1:#EDF1F2;
+  --ink-2:#E2E8EA;
+  --surface:#FFFFFF;
+  --surface-2:#F1F5F6;
+  --hairline:#B9C6CC;
+  --hairline-2:#8FA3AC;
+
+  --text:#0A1A24;
+  --text-2:#2E4653;
+  --muted:#5A7280;
+
+  --orange:#C24400;
+  --orange-dim:rgba(194,68,0,.12);
+  --green:#116B33;
+  --cyan:#0B6E7C;
+  --blue:#12459C;
+  --amber:#8A5A00;
+  --danger:#A81E1E;
+
+  --ridge-hi:#93A9BC;
+  --ridge-lo:#4A6379;
+  --sky:#D6DFE4;
+  --contour:#33505F;
+  --contour-op:.34;
+  --topo-op:.09;
+
+  --shadow:0 8px 20px rgba(16,38,52,.16);
+}
