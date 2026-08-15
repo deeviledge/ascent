@@ -155,6 +155,7 @@
 <div id="app"></div>
 <div id="flash"></div>
 <script src="seed.js"></script>
+<script src="data.migrate.js"></script>
 <script>
 const RANKS=[{m:300,name:"あべのハルカス"},{m:599,name:"高尾山"},{m:1450,name:"富士山 五合目→山頂"},
  {m:3776,name:"富士山 標高ぜんぶ"},{m:5895,name:"キリマンジャロ"},{m:8848,name:"エベレスト"}];
@@ -166,12 +167,87 @@ let S={entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}};
 let ui={tab:"log",cat:"daily",spotId:null,sel:{},reps:1,round:true,edit:null,useCustom:false,cName:"",cM:""};
 
 /* ---------- 保存 ---------- */
-function load(){try{const r=localStorage.getItem(KEY); if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}}
+function load(){
+  let raw=null;
+  try{const r=localStorage.getItem(KEY); if(r) raw=JSON.parse(r);}catch(e){}
+  // 確度の解決には保存済みの over / baseRise が要るので、先に載せてから移行する
+  if(raw&&typeof raw==="object") S=Object.assign(S,raw);
+  S.over=S.over||{};
+  if(!window.AscentMigrate){   // data.migrate.js が届いていない場合の保険
+    pruneOver();
+    setTimeout(()=>flash("data.migrate.js が読み込めません。再アップロードしてください。","error"),400);
+    return;
+  }
+  const res=window.AscentMigrate.run(raw,{
+    seed:SEED,
+    // 移行時に確度を固定するため、そのときの S を使って解決する
+    resolveSeg:(spotId,segId)=>{const sp=spotOf(spotId); if(!sp) return null;
+      const g=sp.segs.find(x=>x.id===segId); return g?resolve(sp,g):null;}
+  });
+  S=res.data; S.over=S.over||{}; pruneOver();
+  if(res.migrated){
+    // 移行前の姿を1度だけ退避しておく。ここが最後の砦。
+    try{ if(res.backup && !localStorage.getItem(KEY+":backup:preV3"))
+      localStorage.setItem(KEY+":backup:preV3",res.backup); }catch(e){}
+    save();
+    setTimeout(()=>flash("データ形式を更新しました（"+S.entries.length+"件）"),400);
+  }
+}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}
   catch(e){flash("保存できませんでした。端末の空き容量をご確認ください。","error");}}
+
+/* ---------- バックアップ（端末内にしか無いデータの唯一の保険） ---------- */
+function exportJSON(){
+  pruneOver();
+  const payload={app:"ascent-log",format:1,schemaVersion:S.schemaVersion||3,exportedAt:new Date().toISOString(),data:S};
+  const name="ascent-backup-"+today()+".json";
+  try{
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,1)],{type:"application/json"}));
+    const a=document.createElement("a"); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    flash("書き出しました（"+S.entries.length+"件）");
+  }catch(e){ flash("書き出しに失敗しました。","error"); }
+}
+function importJSON(file){
+  const fr=new FileReader();
+  fr.onerror=()=>flash("ファイルを読めませんでした。","error");
+  fr.onload=()=>{
+    let d;
+    try{ const p=JSON.parse(fr.result); d=p&&p.data?p.data:p; }
+    catch(e){ return flash("JSONとして読めませんでした。","error"); }
+    if(!d||!Array.isArray(d.entries)) return flash("記録データが見つかりません。","error");
+    const n=d.entries.length, cur=S.entries.length;
+    if(!confirm("読み込むと現在のデータは置き換わります。\n\n現在 "+cur+"件 → 読込 "+n+"件\n\n直前の状態は自動でバックアップされます。続けますか？")) return;
+    try{ localStorage.setItem(KEY+":undo",JSON.stringify(S)); }catch(e){}
+    S=Object.assign(S,d); S.over=S.over||{};
+    S=window.AscentMigrate.run(d,{seed:SEED,
+      resolveSeg:(spotId,segId)=>{const sp=spotOf(spotId); if(!sp) return null;
+        const g=sp.segs.find(x=>x.id===segId); return g?resolve(sp,g):null;}}).data;
+    S.over=S.over||{}; pruneOver(); save();
+    ui.spotId=null; ui.edit=null; ui.sel={};
+    render(); flash(n+"件を読み込みました");
+  };
+  fr.readAsText(file);
+}
 const spotOf=id=>SEED.find(s=>s.id===id);
-const ovOf=id=>(S.over[id]=S.over[id]||{segs:{}});
-function segOv(sid,gid){const o=ovOf(sid); o.segs=o.segs||{}; return (o.segs[gid]=o.segs[gid]||{});}
+/* 読み取りは S.over を汚さない。書き込みのときだけ実体を作る。 */
+const EMPTY_OV=Object.freeze({segs:Object.freeze({})}), EMPTY_SEG=Object.freeze({});
+const ovOf =id=>S.over[id]||EMPTY_OV;                       // 読み取り専用
+const segOv=(sid,gid)=>((S.over[sid]||EMPTY_OV).segs||EMPTY_SEG)[gid]||EMPTY_SEG;
+const ovW  =id=>{const o=(S.over[id]=S.over[id]||{}); o.segs=o.segs||{}; return o;};   // 書き込み用
+const segOvW=(sid,gid)=>{const o=ovW(sid); return (o.segs[gid]=o.segs[gid]||{});};
+/* 空になった override を掃除する。エクスポートと「実測済み地点数」の判定を正しく保つ。 */
+function pruneOver(){
+  for(const sid of Object.keys(S.over)){
+    const o=S.over[sid]||{};
+    if(o.segs) for(const gid of Object.keys(o.segs)){
+      if(!Object.keys(o.segs[gid]||{}).length) delete o.segs[gid];
+    }
+    const hasSeg=o.segs&&Object.keys(o.segs).length;
+    if(!o.rise&&!o.floorH&&!hasSeg) delete S.over[sid];
+  }
+}
 function today(){const d=new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -218,9 +294,9 @@ function backRise(sp,g){ // 高さが確定していて段数を測った区間 
 /* ---------- 画面 ---------- */
 const pos=t=>{if(t>=8848)return 1;
   for(let i=0;i<6;i++){if(t<BOUNDS[i+1])return (i+(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i]))/6;} return 1;};
-const kcalOf=e=>Math.round(S.weight*e.meters*0.01*(e.round?1.3:1));
+const kcalOf=e=>Math.round(e.kcal!=null?e.kcal:(e.weightAtSave||S.weight)*e.meters*0.01*(e.round?1.3:1));
 let ft; function flash(msg,type){const el=document.getElementById("flash");
-  el.textContent=(type==="rank"?"🏁 ":"")+msg; el.className="show "+(type||"");
+  el.textContent=msg; el.className="show "+(type||"");
   clearTimeout(ft); ft=setTimeout(()=>el.className="",2600);}
 const r1=n=>Math.round(n*10)/10;
 
@@ -318,7 +394,17 @@ function viewSpots(){
       <span class="sn"><span class="t">${esc(s.name)}</span>
       <span class="s">${esc(s.area)} · ${s.segs.length}区間${s.totalM?` · 公表 ${s.totalM}m`:""}</span></span>
       <span class="h">${r1(t)}<span>m</span></span></button>
-      ${open?editor(s):""}`;}).join("")}`;
+      ${open?editor(s):""}`;}).join("")}
+  <div class="panel" style="margin-top:14px">
+    <div class="edh">バックアップ</div>
+    <div class="note">記録はこの端末の中にしかありません。ブラウザのデータを消すと戻せないので、
+      ときどき書き出してファイルを残してください。現在 ${S.entries.length}件。</div>
+    <div class="mini" style="margin-bottom:0">
+      <button id="expJ">書き出す</button>
+      <button id="impJ">読み込む</button>
+    </div>
+    <input id="impF" type="file" accept="application/json,.json" style="display:none">
+  </div>`;
 }
 function editor(sp){
   const o=ovOf(sp.id), f=floorHFor(sp);
@@ -386,13 +472,16 @@ function bind(){
   if($("bRise"))  $("bRise").onchange =e=>{const v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render();};
   if($("bFloor")) $("bFloor").onchange=e=>{const v=num(e.target.value); if(v)S.baseFloorH=v; save(); render();};
   q("[data-edit]").forEach(b=>b.onclick=()=>{ui.edit=ui.edit===b.dataset.edit?null:b.dataset.edit; render();});
-  q(".sIn").forEach(i=>i.onchange=e=>{const o=ovOf(ui.edit), k=i.dataset.k, v=num(e.target.value);
-    if(v==null) delete o[k]; else o[k]=k==="rise"?v/1000:v; save(); render();});
-  q(".gIn").forEach(i=>i.onchange=e=>{const so=segOv(ui.edit,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
-    if(v==null) delete so[k]; else so[k]=k==="rise"?v/1000:v; save(); render();});
+  q(".sIn").forEach(i=>i.onchange=e=>{const o=ovW(ui.edit), k=i.dataset.k, v=num(e.target.value);
+    if(v==null) delete o[k]; else o[k]=k==="rise"?v/1000:v; pruneOver(); save(); render();});
+  q(".gIn").forEach(i=>i.onchange=e=>{const so=segOvW(ui.edit,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
+    if(v==null) delete so[k]; else so[k]=k==="rise"?v/1000:v; pruneOver(); save(); render();});
   q("[data-base]").forEach(b=>b.onclick=()=>{S.baseRise=Number(b.dataset.base)/1000; save();
     flash("基準の蹴上げを "+b.dataset.base+"mm にしました"); render();});
   q("[data-clear]").forEach(b=>b.onclick=()=>{delete S.over[b.dataset.clear]; save(); render();});
+  if($("expJ")) $("expJ").onclick=exportJSON;
+  if($("impJ")) $("impJ").onclick=()=>$("impF").click();
+  if($("impF")) $("impF").onchange=e=>{const f=e.target.files&&e.target.files[0]; if(f) importJSON(f); e.target.value="";};
 }
 
 function doAdd(){
@@ -402,8 +491,16 @@ function doAdd(){
   const meters=unit*(Number(ui.reps)||0);
   if(meters<=0){flash("区間と本数を選ぶと記録できます。","error"); return;}
   const before=S.entries.reduce((s,e)=>s+e.meters,0);
-  S.entries.unshift({id:Date.now(),date:today(),spotId:sp.id,name:sp.name,segIds:ids,
-    unitM:unit,reps:Number(ui.reps),meters,round:ui.round,cat:sp.cat});
+  const now=Date.now(), segs={};
+  let best=null; const RANKC={"実測":4,"確定":3,"導出":2,"推定":1};
+  sp.segs.filter(g=>ui.sel[g.id]).forEach(g=>{const c=resolve(sp,g).conf;
+    segs[g.id]=c; if(best===null||RANKC[c]>RANKC[best]) best=c;});
+  S.entries.unshift({id:now,date:today(),createdAt:new Date(now).toISOString(),
+    spotId:sp.id,name:sp.name,segIds:ids,
+    unitM:unit,reps:Number(ui.reps),meters,round:ui.round,cat:sp.cat,
+    weightAtSave:S.weight,
+    kcal:Math.round(S.weight*meters*0.01*(ui.round?1.3:1)*100)/100,
+    confidence:best?{max:best,segs}:null});
   save();
   const after=before+meters, hit=RANKS.filter(r=>before<r.m&&after>=r.m);
   ui.reps=1; render();
