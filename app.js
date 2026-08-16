@@ -284,18 +284,22 @@ function vHistory(){
 /* ===== S5 地点一覧 ===== */
 function vSpots(){
   var ex=D.exploration(S);
-  var list=D.allSpots(S).filter(function(s){return s.cat===ui.cat;});
+  var hid=D.allSpots(S,true).filter(function(s){return s.hidden;});
+  var list=(ui.cat==="hidden") ? hid
+    : D.allSpots(S).filter(function(s){return s.cat===ui.cat;});
   return '<div class="card"><h3>探索 '+ex.done+' / '+ex.total+'</h3>'
     + '<div class="pb"><i style="width:'+(ex.done/ex.total*100)+'%"></i></div>'
     + '<button class="ghost" data-go="newspot">＋ 新しい地点を追加</button></div>'
     + '<div class="chips" style="margin-top:var(--s3)">'
     + CATS.map(function(c){ return '<button class="chip '+(ui.cat===c[0]?"on":"")+'" data-cat="'+c[0]+'">'+c[1]+'</button>'; }).join("")
+    + (hid.length?'<button class="chip '+(ui.cat==="hidden"?"on":"")+'" data-cat="hidden">非表示 '+hid.length+'</button>':'')
     + '</div><div style="margin-top:var(--s3)">'
     + list.map(function(s){
         return '<button class="row" data-spot="'+s.id+'"><span class="mk '+(ex.visited.has(s.id)?"":"boss")+'"></span>'
           + '<span class="bd"><span class="nm">'+esc(s.name)+(s.isCustom?' <span class="cf c-meas">自分で追加</span>':'')+'</span>'
           + '<span class="sb">'+esc(s.area)+' · '+s.segs.length+'区間'+(s.totalM?' · 公表 '+s.totalM+'m':'')+'</span></span>'
           + '<span class="vl num">'+fmt(D.spotTotal(S,s))+'<i>m</i></span></button>'; }).join("")
+    + (list.length?'':'<div class="empty">この種類の地点はまだありません。</div>')
     + '</div>';
 }
 
@@ -309,6 +313,17 @@ function vSpotDetail(){
     + (sp.totalSteps?'<div class="note">全区間の実測段数 '+sp.totalSteps+'段（公表）。現在の基準蹴上げ '
       +Math.round(S.baseRise*1000)+'mm なら全体 '+fmt(sp.totalSteps*S.baseRise)+'m。</div>':'')
     + '<button class="primary" data-pick="'+sp.id+'" style="background:var(--surface-2);color:var(--text)">この地点で記録する</button></div>'
+
+    + '<div class="card"><h3>この地点の情報</h3>'
+    + '<div class="fr"><label>名前</label></div>'
+    + '<div class="fr"><input class="mIn wide" data-k="name" type="text" value="'+esc(sp.name)+'"></div>'
+    + '<div class="fr"><label>エリア</label></div>'
+    + '<div class="fr"><input class="mIn wide" data-k="area" type="text" value="'+esc(sp.area==="—"?"":sp.area)+'" placeholder="未設定"></div>'
+    + '<div class="chips" style="margin:var(--s2) 0">'+CATS.map(function(c){
+        return '<button class="chip '+(sp.cat===c[0]?"on":"")+'" data-mcat="'+c[0]+'">'+c[1]+'</button>'; }).join("")+'</div>'
+    + '<div class="fr"><label>拠点からの所要</label><input class="mIn" data-k="min" type="number" inputmode="numeric" value="'+(sp.min==null?"":sp.min)+'"><span class="u">分</span></div>'
+    + (sp.edited&&!sp.isCustom?'<button class="ghost" data-resetmeta="'+sp.id+'">編集前（マスタの内容）に戻す</button>':'')
+    + '</div>'
 
     + '<div class="card"><h3>この施設に一括適用</h3>'
     + '<div class="fr"><label>蹴上げ（1段）</label><input class="sIn" data-k="rise" type="number" inputmode="decimal" value="'
@@ -329,8 +344,16 @@ function vSpotDetail(){
           + (br?'<div class="hint">逆算 → 蹴上げ '+Math.round(br*1000)+'mm'
             + '<button data-base="'+Math.round(br*1000)+'">これを基準値にする</button></div>':'')
           + '</div>'; }).join("")
-    + '<button class="ghost" data-clear="'+sp.id+'">この施設の設定をすべて消す</button>'
-    + (sp.isCustom?'<button class="ghost" data-delspot="'+sp.id+'" style="border-color:var(--danger);color:var(--danger)">この地点を削除</button>':'')
+    + '<button class="ghost" data-clear="'+sp.id+'">計測した値をすべて消す</button></div>'
+
+    + '<div class="card"><h3>使わないとき</h3>'
+    + (D.isHidden(S,sp.id)
+        ? '<div class="note">いまは一覧に出ていません。過去の記録は残っています。</div>'
+          + '<button class="ghost" data-show="'+sp.id+'">一覧に戻す</button>'
+        : '<div class="note">一覧から隠します。過去の記録と計測した値は残るので、あとで戻せます。</div>'
+          + '<button class="ghost" data-hide="'+sp.id+'">この地点を隠す</button>')
+    + (sp.isCustom?'<div class="note" style="margin-top:var(--s4)">自分で追加した地点は完全に削除できます。計測した値も消えます。</div>'
+        +'<button class="ghost" data-delspot="'+sp.id+'" style="border-color:var(--danger);color:var(--danger)">この地点を完全に削除</button>':'')
     + '</div>';
 }
 
@@ -520,10 +543,26 @@ function bind(){
     toast("基準の蹴上げを "+b.dataset.base+"mm にしました"); }; });
   qa("[data-clear]").forEach(function(b){ b.onclick=function(){
     delete S.over[b.dataset.clear]; save(); render(); toast("設定を消しました"); }; });
+  qa(".mIn").forEach(function(i){ i.onchange=function(e){
+    var k=i.dataset.k, v=e.target.value.trim();
+    D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));
+    D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+  qa("[data-mcat]").forEach(function(b){ b.onclick=function(){
+    D.setMeta(S,ui.editSpot,"cat",b.dataset.mcat); save(); render(); toast("保存しました"); }; });
+  qa("[data-resetmeta]").forEach(function(b){ b.onclick=function(){
+    D.resetMeta(S,b.dataset.resetmeta); D.pruneOver(S); save(); render(); toast("元に戻しました"); }; });
+  qa("[data-hide]").forEach(function(b){ b.onclick=function(){
+    D.ovW(S,b.dataset.hide).hidden=true; save(); ui.screen="spots"; render();
+    toast("一覧から隠しました",null,{label:"取り消す",fn:function(){
+      delete S.over[b.dataset.hide].hidden; D.pruneOver(S); save(); render(); }}); }; });
+  qa("[data-show]").forEach(function(b){ b.onclick=function(){
+    var o=S.over[b.dataset.show]; if(o) delete o.hidden;
+    D.pruneOver(S); save(); render(); toast("一覧に戻しました"); }; });
   qa("[data-delspot]").forEach(function(b){ b.onclick=function(){
-    if(!confirm("この地点を削除します。記録は残ります。")) return;
+    if(!confirm("この地点を完全に削除します。計測した値も消えます。\n過去の記録は残ります。続けますか？")) return;
     S.customSpots=S.customSpots.filter(function(s){ return s.id!==b.dataset.delspot; });
-    save(); ui.screen="spots"; render(); }; });
+    delete S.over[b.dataset.delspot];
+    save(); ui.screen="spots"; ui.cat="mall"; render(); toast("削除しました"); }; });
 
   /* 地点追加 */
   qa(".dIn").forEach(function(i){ i.onchange=function(e){ ui.draft[i.dataset.k]=e.target.value; render(); }; });
