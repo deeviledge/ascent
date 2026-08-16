@@ -26,12 +26,59 @@ function tierOf(t){
   return {idx:i,tier:RANKS[i],cleared:i,remain:RANKS[i].m-t,done:false,
           inTier:(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i])};
 }
+/* 6座それぞれの状態。どの標高がどの山かを一覧で見せるための表。 */
+function mountainTable(t){
+  return RANKS.map(function(r,i){
+    var prev=BOUNDS[i];
+    var reached=t>=r.m;
+    var cur=!reached && t>=prev;
+    return {i:i+1,id:r.id,name:r.name,m:r.m,
+      reached:reached, current:cur,
+      done:Math.min(t,r.m),
+      ratio: reached?1:(cur?(t-prev)/(r.m-prev):0),
+      absRatio: Math.min(1,t/r.m),
+      remain: Math.max(0,r.m-t)};
+  });
+}
+/* 期間の合計が、どの山いくつぶんに当たるか */
+function equivalent(m){
+  if(m<=0) return null;
+  var pick=RANKS[0];
+  for(var i=RANKS.length-1;i>=0;i--){ if(m>=RANKS[i].m){ pick=RANKS[i]; break; } }
+  return {name:pick.name, m:pick.m, times:m/pick.m};
+}
 function lifetime(S){ return S.entries.reduce(function(a,e){return a+e.meters;},0); }
 
-/* ===== 地点 ===== */
-function allSpots(S){ return (root.SEED||[]).concat(S.customSpots||[]); }
-function spotOf(S,id){ var a=allSpots(S);
+/* ===== 地点 =====
+   マスタ(seed.js)は差し替わりうるので、名前などの編集は seed を書き換えず
+   over[id].meta に持ち、読み出すときに重ねる。非表示も同じ場所に持つ。 */
+function decorate(S,sp){
+  var o=S.over[sp.id]||{}, m=o.meta;
+  if(!m&&!o.hidden) return sp;
+  var out={}; for(var k in sp) out[k]=sp[k];
+  if(m){
+    if(m.name) out.name=m.name;
+    if(m.area) out.area=m.area;
+    if(m.cat)  out.cat=m.cat;
+    if(m.min!=null) out.min=m.min;
+    out.edited=true;
+  }
+  out.hidden=!!o.hidden;
+  return out;
+}
+function allSpots(S,withHidden){
+  var a=(root.SEED||[]).concat(S.customSpots||[]).map(function(sp){return decorate(S,sp);});
+  return withHidden? a : a.filter(function(sp){return !sp.hidden;});
+}
+function spotOf(S,id){ var a=allSpots(S,true);
   for(var i=0;i<a.length;i++) if(a[i].id===id) return a[i]; return null; }
+function isHidden(S,id){ return !!((S.over[id]||{}).hidden); }
+function setMeta(S,id,k,v){
+  var o=ovW(S,id); o.meta=o.meta||{};
+  if(v==null||v==="") delete o.meta[k]; else o.meta[k]=v;
+  if(!Object.keys(o.meta).length) delete o.meta;
+}
+function resetMeta(S,id){ var o=S.over[id]; if(o) delete o.meta; }
 
 var EMPTY_OV={segs:{}}, EMPTY_SEG={};
 function ov(S,id){ return S.over[id]||EMPTY_OV; }
@@ -44,7 +91,8 @@ function pruneOver(S){
     if(o.segs) Object.keys(o.segs).forEach(function(gid){
       if(!Object.keys(o.segs[gid]||{}).length) delete o.segs[gid]; });
     var hasSeg=o.segs&&Object.keys(o.segs).length;
-    if(!o.rise&&!o.floorH&&!hasSeg) delete S.over[sid];
+    var hasMeta=o.meta&&Object.keys(o.meta).length;
+    if(!o.rise&&!o.floorH&&!hasSeg&&!hasMeta&&!o.hidden) delete S.over[sid];
   });
 }
 
@@ -187,6 +235,77 @@ function streak(S){
     if(run>best) best=run; prev=k; });
   return {current:cur,best:best};
 }
+/* 実績は「いま満たしているか」と「かつて解除したか」を分ける。
+   記録を消すと統計は戻るが、解除の履歴は残す。ゲームとして自然な扱い。 */
+function syncAchievements(S){
+  S.achievementLog=S.achievementLog||{};
+  var now=achievements(S), fresh=[];
+  now.forEach(function(a){
+    if(a.got && !S.achievementLog[a.name]){
+      S.achievementLog[a.name]={unlockedAt:new Date().toISOString()};
+      fresh.push(a);
+    }
+  });
+  return fresh;
+}
+function achievementView(S){
+  var log=S.achievementLog||{};
+  return achievements(S).map(function(a){
+    var ever=!!log[a.name];
+    return {name:a.name,desc:a.desc,got:a.got||ever,now:a.got,ever:ever,
+            lapsed:(ever&&!a.got), unlockedAt:ever?log[a.name].unlockedAt:null};
+  });
+}
+/* 到達済みSummitは現在の累計から数え直す。記録を消せば山を下る。 */
+function recomputeSummits(S){
+  var t=lifetime(S); S.summits=S.summits||{};
+  var changed=false;
+  RANKS.forEach(function(r){
+    if(t>=r.m){ if(!S.summits[r.id]){ S.summits[r.id]={reachedAt:null,atElevationM:t}; changed=true; } }
+    else if(S.summits[r.id]){ delete S.summits[r.id]; changed=true; }
+  });
+  return changed;
+}
+
+/* ===== 内部イベント =====
+   ひとつの記録から複数の出来事が起きうるので、検出と演出を分ける。 */
+var EVENT_PRIORITY={SUMMIT_COMPLETED:4,MISSION_COMPLETED:3,ACHIEVEMENT_UNLOCKED:2,ENTRY_RECORDED:1};
+function snapshot(S,missionProgress){
+  return {
+    lifetime:lifetime(S),
+    summits:Object.keys(S.summits||{}),
+    missions:(missionProgress&&missionProgress.items||[]).filter(function(p){return p.done;})
+              .map(function(p){return p.item.id;}),
+    achievements:achievements(S).filter(function(a){return a.got;}).map(function(a){return a.name;})
+  };
+}
+function buildEvents(before,after,ctx){
+  ctx=ctx||{};
+  var ev=[];
+  ev.push({type:"ENTRY_RECORDED",priority:EVENT_PRIORITY.ENTRY_RECORDED,
+           meters:after.lifetime-before.lifetime,from:before.lifetime,to:after.lifetime,entry:ctx.entry});
+  ev.push({type:"SUMMIT_PROGRESS_UPDATED",priority:0,from:before.lifetime,to:after.lifetime});
+  ev.push({type:"MISSION_PROGRESS_UPDATED",priority:0});
+  diff(before.summits,after.summits).forEach(function(id){
+    ev.push({type:"SUMMIT_COMPLETED",priority:EVENT_PRIORITY.SUMMIT_COMPLETED,id:id,
+             name:(RANKS.filter(function(r){return r.id===id;})[0]||{}).name});
+  });
+  diff(before.missions,after.missions).forEach(function(id){
+    ev.push({type:"MISSION_COMPLETED",priority:EVENT_PRIORITY.MISSION_COMPLETED,id:id,
+             item:(ctx.missionById||{})[id]});
+  });
+  diff(before.achievements,after.achievements).forEach(function(n){
+    ev.push({type:"ACHIEVEMENT_UNLOCKED",priority:EVENT_PRIORITY.ACHIEVEMENT_UNLOCKED,name:n});
+  });
+  return ev;
+}
+function diff(a,b){ var s={}; a.forEach(function(x){s[x]=1;}); return b.filter(function(x){return !s[x];}); }
+function topEvent(events){
+  var best=null;
+  events.forEach(function(e){ if(e.priority>0 && (!best||e.priority>best.priority)) best=e; });
+  return best;
+}
+
 function achievements(S){
   var map=byDate(S), st=streak(S), ex=exploration(S);
   var vals=Object.keys(map).map(function(k){return map[k];});
@@ -254,11 +373,11 @@ function derive(v){
   return o;
 }
 
-root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,lifetime:lifetime,
-  allSpots:allSpots,spotOf:spotOf,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
+root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,lifetime:lifetime,mountainTable:mountainTable,equivalent:equivalent,
+  allSpots:allSpots,spotOf:spotOf,isHidden:isHidden,setMeta:setMeta,resetMeta:resetMeta,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
   riseFor:riseFor,floorHFor:floorHFor,resolve:resolve,spotTotal:spotTotal,backRise:backRise,
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive};
 })(typeof window!=="undefined"?window:globalThis);

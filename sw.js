@@ -1,7 +1,7 @@
 /* Ascent Log service worker
    静的ファイルは cache-first。電波が悪くても、また圏外でも即座に起動する。
    ファイルを追加したら FILES に追記し、CACHE の番号を必ず上げること。 */
-const CACHE = "ascent-v10";
+const CACHE = "ascent-v14";
 const FILES = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const FILES = [
   "./seed.js",
   "./data.migrate.js",
   "./domain.js",
+  "./domain.missions.js",
   "./view.mountain.js",
   "./app.js",
   "./manifest.json",

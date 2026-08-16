@@ -60,7 +60,7 @@
   --ease:cubic-bezier(.2,.7,.2,1);
 
   --shadow:0 12px 32px rgba(0,0,0,.42);
-  --z-bar:40; --z-sheet:60; --z-toast:80;
+  --z-bar:40; --z-sheet:60; --z-toast:80; --z-modal:90;
 }
 
 /* 屋外モード。直射日光下でのコントラストを優先し、彩度を落として明度差を稼ぐ。 */

@@ -30,7 +30,8 @@ function load(){
       var gs=sp.segs.filter(function(g){return ids.indexOf(g.id)>=0;});
       return gs.length? D.stepsForSegs(S,sp,gs)*(reps||1) : null; }
   });
-  S=res.data; S.over=S.over||{}; D.pruneOver(S);
+  S=res.data; S.over=S.over||{}; D.pruneOver(S); M.ensure(S); save();
+  D.recomputeSummits(S); M.ensure(S); D.syncAchievements(S);
   if(res.migrated){
     try{ if(res.backup&&!localStorage.getItem(KEY+":backup:pre"))
       localStorage.setItem(KEY+":backup:pre",res.backup); }catch(e){}
@@ -63,6 +64,9 @@ function render(){
   var body="";
   if(ui.screen==="home") body=vHome();
   else if(ui.screen==="record") body=vRecord();
+  else if(ui.screen==="mountains") body=vMountains();
+  else if(ui.screen==="mission") body=vMission();
+  else if(ui.screen==="recap") body=vRecap();
   else if(ui.screen==="stats") body=vStats();
   else if(ui.screen==="history") body=vHistory();
   else if(ui.screen==="spots") body=vSpots();
@@ -75,9 +79,10 @@ function render(){
 }
 
 function header(){
-  var back={record:"home",spot:"spots",newspot:"spots",settings:"home"}[ui.screen];
+  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mountains:"home",mission:"home",recap:"home"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
-    spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定"}[ui.screen];
+    spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
+    mountains:"全行程",mission:"今週の遠征",recap:"週の記録"}[ui.screen];
   return '<div class="hd">'
     + (back?'<button class="ico" data-go="'+back+'" aria-label="戻る">'+icon("back")+'</button>':"")
     + '<div class="brand">'+esc(title)+(ui.screen==="home"?'<small>都市を、登れ。</small>':"")+'</div>'
@@ -89,7 +94,7 @@ function tabs(){
   var T=[["home","ホーム","home"],["stats","分析","chart"],
          ["spots","探索","map"],["history","履歴","history"]];
   // 地点の詳細・追加から来たときも「探索」を点灯させる
-  var here={spot:"spots",newspot:"spots",record:"home",settings:"home"}[ui.screen]||ui.screen;
+  var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mountains:"home",mission:"home"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
     return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
@@ -121,9 +126,13 @@ function vHome(){
     + '<div class="ladder">'+D.RANKS.map(function(r,i){
         var done=t>=r.m, prev=D.BOUNDS[i], w=done?100:Math.max(0,Math.min(100,(t-prev)/(r.m-prev)*100));
         return '<div class="sg '+(done?"done":"")+'"><i style="width:'+w+'%"></i></div>'; }).join("")
-    + '</div><div class="ladderL"><span>制覇 '+k.cleared+'/6</span><span>探索 '+ex.done+'/'+ex.total+'</span></div>'
+    + '</div><button class="ladderL" data-go="mountains"><span>制覇 '+k.cleared+'/6'
+    + (k.done?'':' · 次は '+esc(D.RANKS[Math.min(5,k.idx+1)].name))+'</span>'
+    + '<span>全行程を見る ›</span></button>'
 
     + todayCard()
+    + recapCard()
+    + missionCard()
 
     + '<div class="card"><h3>よく行く場所</h3><div class="grid">'
     + cards.map(function(s){ return spotCard(s,ex.visited); }).join("")
@@ -136,6 +145,95 @@ function vHome(){
         + '<span class="vl num">'+fmt(D.spotTotal(S,s))+'<i>m</i></span></button>'; }).join("")
       + '</div>':"");
 }
+/* ===== 今週の遠征 ===== */
+function diffTag(d){ return '<span class="dif '+d.toLowerCase()+'">'+d+'</span>'; }
+function missionRow(p,i,detail){
+  var it=p.item, cur=p.item.unit==="m"? fmt(p.current) : Math.round(p.current);
+  return '<div class="ms'+(p.done?" done":"")+'">'
+    + '<span class="no num">'+("0"+(i+1)).slice(-2)+'</span>'
+    + '<span class="bd"><span class="cat">'+it.catLabel+(detail?' <span class="j">'+it.catJp+'</span>':'')+' '+diffTag(it.difficulty)+'</span>'
+    + '<span class="ttl">'+esc(it.title)+'</span>'
+    + '<span class="pb"><i style="width:'+Math.round(p.ratio*100)+'%"></i></span>'
+    + '<span class="val num">'+(p.done?"COMPLETE":cur+" / "+it.target.toLocaleString()+it.unit)+'</span>'
+    + (detail?'<span class="dsc">'+esc(it.desc)+'</span>':'')
+    + '</span></div>';
+}
+function missionCard(){
+  var k=M.currentWeek(), wp=M.weekProgress(S,k), left=M.daysLeft(k);
+  if(!wp.total) return "";
+  return '<button class="card mcard" data-go="mission"><h3>今週の遠征 <span class="rt">'
+    + M.weekLabel(k)+' · 残り'+left+'日</span></h3>'
+    + '<div class="msum"><span class="num v">'+wp.done+'<i>/'+wp.total+'</i></span>'
+    + '<span class="k">'+(wp.done===wp.total?"全ミッション達成":"達成したミッション")+'</span></div>'
+    + wp.items.map(function(p,i){ return missionRow(p,i,false); }).join("")
+    + '</button>';
+}
+function vMission(){
+  var k=M.currentWeek(), wp=M.weekProgress(S,k), w=M.weekSummary(S,k), left=M.daysLeft(k);
+  var pw=M.weekSummary(S,M.prevWeek(k)), d=w.m-pw.m;
+  return '<div class="card"><h3>EXPEDITION '+M.weekLabel(k)+'</h3>'
+    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(w.m)+'<i>m</i></span>'
+    + '<span class="k" style="color:'+(d>=0?"var(--green)":"var(--muted)")+'">'
+    + (d>=0?"+":"")+fmt(d)+' m vs 先週</span></div>'
+    + '<div class="note" style="margin-bottom:0">残り'+left+'日 ・ '+w.days+'日記録 ・ '+w.spots+'ヶ所</div></div>'
+    + '<div class="card"><h3>EXPEDITION BRIEFING</h3>'
+    + wp.items.map(function(p,i){ return missionRow(p,i,true); }).join("")
+    + '<div class="note" style="margin-bottom:0">ミッションは毎週月曜に自動で決まります。'
+    + '目標は直近4週の実績から調整され、週の途中では変わりません。</div></div>'
+    + '<div class="card"><h3>今週の日別</h3><div class="days">'
+    + (function(){ var mx=Math.max.apply(null,w.byDay.map(function(x){return x.m;}))||1;
+        return w.byDay.map(function(x){
+          return '<div class="'+(x.date===D.today()?"now":"")+'"><i style="height:'+Math.max(3,x.m/mx*54)+'px"></i>'
+            + '<span>'+x.dow+'</span></div>'; }).join(""); })()
+    + '</div></div>';
+}
+
+/* ===== 週の記録（Recap） ===== */
+function recapCard(){
+  var last=M.prevWeek(M.currentWeek());
+  var w=M.weekSummary(S,last);
+  if(!w.n) return "";
+  if((S.recaps||{})[last]&&S.recaps[last].seen) return "";
+  return '<button class="card rcard" data-go="recap"><h3>先週の記録</h3>'
+    + '<div class="msum"><span class="num v">'+fmt(w.m)+'<i>m</i></span>'
+    + '<span class="k">'+M.weekLabel(last)+' の遠征がまとまりました</span></div>'
+    + '<div class="note" style="margin-bottom:0">ひらいて見る ›</div></button>';
+}
+function vRecap(){
+  var k=ui.recapWeek||M.prevWeek(M.currentWeek());
+  var w=M.weekSummary(S,k), pw=M.weekSummary(S,M.prevWeek(k));
+  var d=w.m-pw.m, pct=pw.m>0?Math.round(d/pw.m*100):null;
+  var wp=M.weekProgress(S,k);
+  var t=D.lifetime(S), tier=D.tierOf(t);
+  var mx=Math.max.apply(null,w.byDay.map(function(x){return x.m;}))||1;
+  return '<div class="card"><h3>WEEKLY EXPEDITION '+M.weekLabel(k)+'</h3>'
+    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(w.m)+'<i>m</i></span>'
+    + (w.n?'<span class="k" style="color:'+(d>=0?"var(--green)":"var(--muted)")+'">'
+      +(d>=0?"+":"")+fmt(d)+' m'+(pct!==null?' / '+(pct>=0?"+":"")+pct+'%':'')+'</span>':'')+'</div></div>'
+    + (w.n? '<div class="stats">'
+        + '<div><div class="k">記録日数</div><div class="v num">'+w.days+'<i>日</i></div></div>'
+        + '<div><div class="k">登った場所</div><div class="v num">'+w.spots+'<i>ヶ所</i></div></div>'
+        + '<div><div class="k">消費エネルギー</div><div class="v num">'+w.kcal.toLocaleString()+'<i>kcal</i></div></div>'
+        + '<div><div class="k">のぼった段数</div><div class="v num">'+w.steps.toLocaleString()+'<i>段</i></div></div>'
+        + '</div>'
+      : '<div class="empty">この週の記録はありません。</div>')
+    + '<div class="card"><h3>この週の遠征</h3><div class="days">'
+    + w.byDay.map(function(x){
+        return '<div><i style="height:'+Math.max(3,x.m/mx*54)+'px"></i><span>'+x.dow+'</span></div>'; }).join("")
+    + '</div></div>'
+    + (wp.total?'<div class="card"><h3>ミッション '+wp.done+' / '+wp.total+'</h3>'
+        + wp.items.map(function(p,i){ return missionRow(p,i,false); }).join("")+'</div>':'')
+    + '<div class="card"><h3>SUMMIT</h3>'
+    + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(tier.tier.name)+'</div>'
+    + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+tier.tier.m.toLocaleString()+' m'
+    + (tier.remain>0?' — あと '+fmt(tier.remain)+'m':' — 制覇')+'</div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(tier.inTier*100)+'%"></i></div></div>'
+    + '<div class="card" style="text-align:center"><div style="font-size:var(--f-md);font-weight:700">'
+    + (w.m>0?'今週も、ひとつ高くなった。':'次の遠征は今日から始まります。')+'</div>'
+    + '<div class="note" style="border:none;justify-content:center;margin-bottom:0">Keep climbing.</div></div>'
+    + '<button class="ghost" id="recapSeen">確認した</button>';
+}
+
 /* 今日の積み上げ。日々の手応えは週や生涯より先に見えるべき。 */
 function todayCard(){
   var t=D.dayStats(S,D.today()), w=D.periodStats(S,7).cur;
@@ -197,12 +295,67 @@ function vRecord(){
     + '<button class="primary" id="commit" '+(add>0?"":"disabled")+'>記録する</button></div>';
 }
 
+/* ===== 全行程（6座） ===== */
+function mountainRows(t,note){
+  return D.mountainTable(t).map(function(r){
+    var state = r.reached ? '<span class="cf c-meas">登頂</span>'
+      : r.current ? '<span class="cf c-conf">現在地</span>' : '';
+    return '<div class="mrow'+(r.current?" now":"")+(r.reached?" done":"")+'">'
+      + '<span class="ix num">'+r.i+'</span>'
+      + '<span class="bd"><span class="nm">'+esc(r.name)+' '+state+'</span>'
+      + '<span class="pb"><i style="width:'+Math.round(r.ratio*100)+'%"></i></span>'
+      + '<span class="sb num">'+(r.reached
+          ? r.m.toLocaleString()+' m 登頂済み'
+          : r.current
+            ? fmt(r.done)+' / '+r.m.toLocaleString()+' m　あと '+fmt(r.remain)+' m'
+            : r.m.toLocaleString()+' m　あと '+fmt(r.remain)+' m')+'</span></span>'
+      + '<span class="pc num">'+Math.round(r.ratio*100)+'%</span></div>';
+  }).join("");
+}
+function vMountains(){
+  var t=D.lifetime(S), k=D.tierOf(t);
+  return '<div class="hero">'
+    + Mountain.render(k.tier.id,k.inTier,{label:k.tier.name})
+    + '<div class="cap"><div class="tier">'+(k.done?"ALL CLEAR":esc(k.tier.name))+'</div>'
+    + '<div class="big num">'+fmt(t)+'<i>m</i></div></div></div>'
+    + '<div class="card"><h3>行程の断面図</h3>'
+    + '<div class="scrollx" id="prof">'+Mountain.profile(t,fmt)+'</div>'
+    + '<div class="note" style="margin-bottom:0">横にスクロールすると、この先の山がどれだけ離れているか見えます。'
+    + '目盛りは1,000mごと、旗が現在地です。高さは見やすさのために圧縮してあり、'
+    + '横の距離が実際の獲得標高に対応します。</div></div>'
+
+    + '<div class="card"><h3>生涯累計 — 6座</h3>'+mountainRows(t)+'</div>'
+    + '<div class="card"><h3>この期間で登った山</h3>'
+    + '<div class="chips">'+PERIODS.map(function(x){
+        return '<button class="chip '+(ui.period===x[0]?"on":"")+'" data-per="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
+    + periodMountain()
+    + '</div>'
+    + '<div class="note">同じ高さでも、駅の地下1本と山ひとつは同じ「m」です。'
+    + '速さも休憩も関係なく、登った高さだけが積み上がります。</div>';
+}
+function periodMountain(){
+  var p=ui.period? D.periodStats(S,ui.period) : D.allTimeStats(S);
+  var m=p.cur.m, eq=D.equivalent(m);
+  if(!m) return '<div class="empty" style="margin-top:var(--s3)">この期間の記録はまだありません。</div>';
+  var k=D.tierOf(m);
+  return '<div style="margin-top:var(--s3)">'
+    + '<div class="eqline"><span class="num v">'+fmt(m)+'<i>m</i></span>'
+    + '<span class="k">'+esc(eq.name)+' ×'+ (Math.round(eq.times*100)/100) +'</span></div>'
+    + '<div class="mrow now" style="border:none;padding-top:var(--s3)">'
+    + '<span class="bd"><span class="nm">'+esc(k.tier.name)+'</span>'
+    + '<span class="pb"><i style="width:'+Math.round(k.inTier*100)+'%"></i></span>'
+    + '<span class="sb num">'+fmt(m)+' / '+k.tier.m.toLocaleString()+' m'
+    + (k.done?'':'　あと '+fmt(k.remain)+' m')+'</span></span>'
+    + '<span class="pc num">'+Math.round(k.inTier*100)+'%</span></div>'
+    + '<div class="note" style="margin-bottom:0">この期間ぶんだけを積み上げた場合の到達点です。</div></div>';
+}
+
 /* ===== S3 分析 ===== */
 function vStats(){
   var p=ui.period? D.periodStats(S,ui.period) : D.allTimeStats(S);
   var t=D.lifetime(S), k=D.tierOf(t);
   var hm=D.heatmap(S,18), wd=D.weekday(S), mx=Math.max.apply(null,wd)||1;
-  var ar=D.areaProgress(S), ac=D.achievements(S), got=ac.filter(function(a){return a.got;}).length;
+  var ar=D.areaProgress(S), ac=D.achievementView(S), got=ac.filter(function(a){return a.got;}).length;
   var st=D.streak(S);
   function d(v){ return v==null?'<span class="d">前期間なし</span>'
     : '<span class="d '+(v>0?"up":v<0?"dn":"")+'">'+(v>0?"+":"")+v+'% 前期間</span>'; }
@@ -219,19 +372,28 @@ function vStats(){
     + '<div class="note">脂肪換算 約 '+Math.round(D.fatG(p.cur.kcal,S))+' g（理論値・7,200kcal/kg）。'
     + '単純なエネルギー換算による参考値で、実際の脂肪の増減を示すものではありません。</div>'
 
-    + '<div class="card"><h3>現在の山</h3>'
+    + '<div class="card"><h3>この期間で登った山</h3>'
+    + (function(){ var eq=D.equivalent(p.cur.m);
+        return eq? '<div class="eqline"><span class="num v">'+fmt(p.cur.m)+'<i>m</i></span>'
+          + '<span class="k">'+esc(eq.name)+' ×'+(Math.round(eq.times*100)/100)+'</span></div>'
+          : '<div class="note" style="margin:0">この期間の記録はまだありません。</div>'; })()
+    + '</div>'
+
+    + '<div class="card"><h3>生涯累計 — 現在の山</h3>'
     + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(k.tier.name)+'</div>'
     + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+k.tier.m.toLocaleString()+' m'
     + (k.remain>0?' — あと '+fmt(k.remain)+'m':' — 制覇')+'</div>'
-    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(k.inTier*100)+'%"></i></div></div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(k.inTier*100)+'%"></i></div>'
+    + '<button class="ghost" data-go="mountains">6座すべての進捗を見る</button></div>'
 
-    + '<div class="card"><h3>日別（直近14日）</h3><div class="days d14">'
-    + (function(){ var ds=D.lastDays(S,14), mx=Math.max.apply(null,ds.map(function(d){return d.m;}))||1;
+    + '<div class="card"><h3>日別（直近90日）</h3><div class="scrollx" id="dayscroll"><div class="days d90">'
+    + (function(){ var ds=D.lastDays(S,90), mx=Math.max.apply(null,ds.map(function(d){return d.m;}))||1;
         return ds.map(function(d,i){
-          return '<div class="'+(i===ds.length-1?"now":"")+'" title="'+d.date+' '+fmt(d.m)+'m">'
+          var first=(d.date.slice(8)==="01");
+          return '<div class="'+(i===ds.length-1?"now":"")+(first?" mstart":"")+'" title="'+d.date+' '+fmt(d.m)+'m">'
             + '<i style="height:'+Math.max(3,d.m/mx*64)+'px"></i>'
-            + '<span>'+d.date.slice(8)+'</span></div>'; }).join(""); })()
-    + '</div>'
+            + '<span>'+(first?d.date.slice(5,7)+"月":d.date.slice(8))+'</span></div>'; }).join(""); })()
+    + '</div></div>'
     + (function(){ var b=D.bestDay(S);
         return b.date?'<div class="note" style="margin-bottom:0">最高単日 '+fmt(b.m)+'m（'+b.date.slice(5).replace("-","/")+'）</div>':''; })()
     + '</div>'
@@ -255,7 +417,8 @@ function vStats(){
         + '<span class="ct num">'+a.done+'/'+a.total+'</span></div>'; }).join("")+'</div>'
 
     + '<div class="card"><h3>実績 '+got+'/14</h3><div class="ach">'
-    + ac.map(function(a){ return '<div class="'+(a.got?"got":"")+'"><b>'+esc(a.name)+'</b><span>'+esc(a.desc)+'</span></div>'; }).join("")
+    + ac.map(function(a){ return '<div class="'+(a.got?"got":"")+(a.lapsed?" lapsed":"")+'"><b>'+esc(a.name)+'</b>'
+        + '<span>'+esc(a.lapsed?"解除済み（現在は条件外）":a.desc)+'</span></div>'; }).join("")
     + '</div></div>';
 }
 
@@ -476,6 +639,7 @@ function commit(){
   var unit=picked.reduce(function(a,g){return a+D.resolve(S,sp,g).m;},0);
   var reps=Number(ui.reps)||0, meters=unit*reps;
   if(meters<=0) return toast("区間と本数を選ぶと記録できます。","error");
+  var wk=M.currentWeek(), mBefore=M.weekProgress(S,wk);
   var before=D.lifetime(S), now=Date.now(), segs={}, best=null;
   picked.forEach(function(g){ var c=D.resolve(S,sp,g).conf; segs[g.id]=c;
     if(best===null||D.CONF_RANK[c]>D.CONF_RANK[best]) best=c; });
@@ -485,20 +649,107 @@ function commit(){
     steps:Math.round(D.stepsForSegs(S,sp,picked)*reps),
     weightAtSave:S.weight,kcal:D.kcalRaw(meters,S.weight,ui.round),
     confidence:best?{max:best,segs:segs}:null};
-  S.entries.unshift(e); save();
-  var after=before+meters;
-  var hit=D.RANKS.filter(function(r){ return before<r.m&&after>=r.m; });
-  if(hit.length){ var top=hit[hit.length-1];
-    S.summits[top.id]={reachedAt:e.createdAt,atElevationM:after}; save(); ui.summitFx=top.id; }
-  ui.reps=1; ui.screen="home"; render();
-  if(hit.length) toast(hit[hit.length-1].name+" 登頂","summit");
-  else toast(fmt(meters)+"m 記録しました",null,{label:"取り消す",fn:function(){
-    S.entries=S.entries.filter(function(x){return x.id!==e.id;}); save(); render();
-    toast("取り消しました"); }});
+  var wk0=M.currentWeek();
+  var snapBefore=D.snapshot(S,M.weekProgress(S,wk0));
+
+  S.entries.unshift(e);
+  D.recomputeSummits(S);
+  M.ensure(S);
+  var fresh=D.syncAchievements(S);
+  save();
+
+  var wp=M.weekProgress(S,wk0), byId={};
+  wp.items.forEach(function(p){ byId[p.item.id]=p.item; });
+  var snapAfter=D.snapshot(S,wp);
+  var events=D.buildEvents(snapBefore,snapAfter,{entry:e,missionById:byId});
+
+  events.filter(function(x){return x.type==="MISSION_COMPLETED";}).forEach(function(x){
+    S.missionState[x.id]={completedAt:new Date().toISOString()}; });
+  if(events.some(function(x){return x.type==="MISSION_COMPLETED";})) save();
+
+  ui.reps=1; ui.screen="home";
+  var top=D.topEvent(events);
+  if(top&&top.type==="SUMMIT_COMPLETED") ui.summitFx=top.id;
+  render();
+  presentEvents(events,e);
 }
+
+/* 同時に複数起きたときは、優先順位の一番高いものだけを演出する。
+   SUMMIT > MISSION > ACHIEVEMENT > ENTRY */
+function presentEvents(events,entry){
+  var top=D.topEvent(events);
+  var missions=events.filter(function(x){return x.type==="MISSION_COMPLETED";});
+  var achs=events.filter(function(x){return x.type==="ACHIEVEMENT_UNLOCKED";});
+  var extra=[];
+  if(missions.length) extra.push("ミッション"+missions.length+"件");
+  if(achs.length) extra.push("実績"+achs.length+"件");
+
+  if(!top||top.type==="ENTRY_RECORDED"){
+    toast(fmt(entry.meters)+"m 記録しました",null,{label:"取り消す",fn:function(){ undoEntry(entry); }});
+    return;
+  }
+  if(top.type==="SUMMIT_COMPLETED"){
+    toast(top.name+" 登頂"+(extra.length?" ・ "+extra.join(" ・ ")+"達成":""),"summit");
+    return;
+  }
+  if(top.type==="MISSION_COMPLETED"){
+    ui.fx={items:missions.map(function(x){return x.item;}).filter(Boolean),
+           from:events[0].from,to:events[0].to,
+           note:achs.length?("実績「"+achs[0].name+"」も解除"):""};
+    playFx(); return;
+  }
+  if(top.type==="ACHIEVEMENT_UNLOCKED"){
+    toast("実績「"+top.name+"」解除","summit");
+  }
+}
+function undoEntry(e){
+  S.entries=S.entries.filter(function(x){return x.id!==e.id;});
+  D.recomputeSummits(S); M.ensure(S); save(); render(); toast("取り消しました");
+}
+
+/* ===== MISSION COMPLETE 演出（560ms・CSSのみ） ===== */
+function playFx(){
+  var fx=ui.fx; ui.fx=null; if(!fx) return;
+  var reduce = (S.settings.reducedMotion==="on") ||
+    (window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var el=$("fx"); if(!el) return;
+  var it=fx.items[0], more=fx.items.length-1;
+  el.innerHTML='<div class="fxin"><div class="ring"></div>'
+    + '<svg class="peak prof" width="92" height="62" viewBox="0 0 92 62" aria-hidden="true">'
+    + '<path d="M2 58 L26 34 L38 42 L52 12 L68 40 L78 32 L90 58 Z" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linejoin="round"/>'
+    + '<path d="M52 12 L45 21 L49 19 L52 22 L56 18 L60 22 Z" fill="var(--text)"/>'
+    + '<path d="M52 12 v-11" stroke="var(--text)" stroke-width="2"/>'
+    + '<path d="M53 1 h16 l-5 4.5 5 4.5 h-16 z" fill="var(--orange)"/></svg>'
+    + '<div class="ttl">MISSION COMPLETE</div>'
+    + '<div class="cat">'+esc(it.catLabel)+'</div>'
+    + '<div class="nm">'+esc(it.title)+'</div>'
+    + (more>0?'<div class="more">ほか '+more+' 件 達成</div>':'')
+    + (fx.note?'<div class="more">'+esc(fx.note)+'</div>':'')
+    + '<div class="alt num"><span id="fxn">'+fmt(fx.from)+'</span> m</div></div>';
+  el.className=reduce?"show reduce":"show";
+  if(!reduce){
+    var t0=performance.now(), dur=260;
+    var tick=function(t){
+      var p=Math.min(1,(t-t0)/dur), v=fx.from+(fx.to-fx.from)*p;
+      var n=$("fxn"); if(n) n.textContent=fmt(v);
+      if(p<1) requestAnimationFrame(tick);
+    };
+    setTimeout(function(){ requestAnimationFrame(tick); },200);
+  } else { var n=$("fxn"); if(n) n.textContent=fmt(fx.to); }
+  clearTimeout(fxT);
+  fxT=setTimeout(function(){ el.className=""; }, reduce?900:1500);
+  el.onclick=function(){ clearTimeout(fxT); el.className=""; };
+}
+var fxT;
 
 /* ===== イベント ===== */
 function bind(){
+  // 断面図は現在地が見える位置から始める。日別は右端（今日）から。
+  var pf=$("prof");
+  if(pf) pf.scrollLeft=Math.max(0,Mountain.flagX(D.lifetime(S))-pf.clientWidth*0.45);
+  var dz=$("dayscroll");
+  if(dz) dz.scrollLeft=dz.scrollWidth;
+
   qa("[data-go]").forEach(function(b){ b.onclick=function(){
     ui.screen=b.dataset.go; if(ui.screen==="newspot") ui.draft=blankDraft(); window.scrollTo(0,0); render(); }; });
   if($("thm")) $("thm").onclick=toggleTheme;
@@ -514,7 +765,8 @@ function bind(){
   qa("[data-cat]").forEach(function(b){ b.onclick=function(){ ui.cat=b.dataset.cat; render(); }; });
   qa("[data-per]").forEach(function(b){ b.onclick=function(){ ui.period=Number(b.dataset.per); render(); }; });
   qa("[data-del]").forEach(function(b){ b.onclick=function(){
-    S.entries=S.entries.filter(function(x){ return String(x.id)!==b.dataset.del; }); save(); render(); }; });
+    S.entries=S.entries.filter(function(x){ return String(x.id)!==b.dataset.del; });
+    D.recomputeSummits(S); M.ensure(S); save(); render(); }; });
 
   qa("[data-seg]").forEach(function(b){ b.onchange=function(){ ui.sel[b.dataset.seg]=b.checked; render(); }; });
   if($("selAll"))  $("selAll").onclick=function(){ D.spotOf(S,ui.spotId).segs.forEach(function(g){ui.sel[g.id]=true;}); render(); };
@@ -578,6 +830,10 @@ function bind(){
     ui.draft.segs.push({label:"",layers:"",steps:"",rise:"",height:""}); render(); };
   if($("saveSpot")) $("saveSpot").onclick=saveSpot;
 
+  if($("recapSeen")) $("recapSeen").onclick=function(){
+    var k=ui.recapWeek||M.prevWeek(M.currentWeek());
+    S.recaps=S.recaps||{}; S.recaps[k]={seen:true,at:new Date().toISOString()};
+    save(); ui.screen="home"; render(); };
   if($("expJ")) $("expJ").onclick=exportJSON;
   if($("impJ")) $("impJ").onclick=function(){ $("impF").click(); };
   if($("impF")) $("impF").onchange=function(e){

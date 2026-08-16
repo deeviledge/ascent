@@ -18,7 +18,7 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 .ico{width:38px;height:38px;display:grid;place-items:center;border:var(--hair) solid var(--hairline);
   border-radius:var(--r-sm);color:var(--text-2);}
 .ico svg{width:19px;height:19px;}
-#bars svg:not(.mt),#app svg:not(.mt){width:20px;height:20px;flex:0 0 auto;}
+#bars svg:not(.mt):not(.prof),#app svg:not(.mt):not(.prof){width:20px;height:20px;flex:0 0 auto;}
 .ico:active{background:var(--surface-2);}
 
 /* ---- 山ヒーロー ---- */
@@ -238,3 +238,89 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 .days .now i{background:var(--orange);}
 .days .now span{color:var(--orange);font-weight:700;}
 .days.d14{height:88px;} .days.d14 i{max-width:18px;} .days.d14 span{font-size:9px;}
+
+/* ---- 全行程（6座） ---- */
+.ladderL{display:flex;justify-content:space-between;align-items:center;width:100%;
+  font-size:var(--f-2xs);color:var(--muted);margin-top:5px;padding:2px 0;text-align:left;}
+.ladderL span:last-child{color:var(--cyan);font-weight:700;}
+.mrow{display:flex;align-items:flex-start;gap:var(--s3);padding:11px 0;
+  border-bottom:var(--hair) solid var(--hairline);}
+.mrow:last-child{border-bottom:none;}
+.mrow .ix{flex:0 0 20px;font-size:var(--f-xs);color:var(--muted);padding-top:2px;}
+.mrow .bd{flex:1;min-width:0;}
+.mrow .nm{display:block;font-size:var(--f-sm);font-weight:600;margin-bottom:6px;}
+.mrow .pb{display:block;}
+.mrow .sb{display:block;font-size:var(--f-2xs);color:var(--muted);margin-top:5px;}
+.mrow .pc{flex:0 0 42px;text-align:right;font-size:var(--f-sm);font-weight:700;color:var(--muted);}
+.mrow.now .pc{color:var(--orange);}
+.mrow.now .pb i{background:var(--orange);}
+.mrow.done .pc{color:var(--green);}
+.mrow .cf{margin-left:6px;vertical-align:1px;}
+.eqline{display:flex;align-items:baseline;gap:var(--s3);}
+.eqline .v{font-size:var(--f-xl);font-weight:700;}
+.eqline .v i{font-style:normal;font-size:var(--f-md);color:var(--muted);margin-left:3px;}
+.eqline .k{font-size:var(--f-sm);color:var(--cyan);font-weight:600;}
+
+/* ---- 横スクロールするグラフ ---- */
+.scrollx{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  margin:0 calc(var(--s4) * -1);padding:0 var(--s4);scrollbar-width:thin;}
+.scrollx::-webkit-scrollbar{height:5px;}
+.scrollx::-webkit-scrollbar-thumb{background:var(--hairline-2);border-radius:3px;}
+svg.prof{display:block;}
+.days.d90{height:92px;width:max-content;gap:3px;}
+.days.d90>div{width:14px;flex:0 0 14px;}
+.days.d90 i{max-width:14px;}
+.days.d90 span{font-size:8px;color:transparent;}
+.days.d90 .mstart span,.days.d90 .now span{color:var(--muted);font-size:9px;}
+.days.d90 .now span{color:var(--orange);}
+.days.d90 .mstart i{box-shadow:-1px 0 0 var(--hairline-2);}
+
+/* ---- 今週の遠征 ---- */
+.mcard,.rcard{display:block;text-align:left;width:100%;}
+.mcard>h3,.rcard>h3{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s2);}
+.mcard .rt{letter-spacing:0;font-weight:600;color:var(--muted);}
+.msum{display:flex;align-items:baseline;gap:var(--s3);margin-bottom:var(--s3);}
+.msum .v{font-size:var(--f-xl);font-weight:700;}
+.msum .v i{font-style:normal;font-size:var(--f-md);color:var(--muted);}
+.msum .k{font-size:var(--f-xs);color:var(--muted);}
+.ms{display:flex;gap:var(--s3);padding:10px 0;border-top:var(--hair) solid var(--hairline);}
+.ms .no{flex:0 0 20px;font-size:var(--f-xs);color:var(--muted);padding-top:3px;}
+.ms .bd{flex:1;min-width:0;}
+.ms .cat{display:block;font-size:9.5px;letter-spacing:.16em;font-weight:700;color:var(--cyan);}
+.ms .cat .j{letter-spacing:0;color:var(--muted);font-weight:600;margin-left:4px;}
+.ms .ttl{display:block;font-size:var(--f-sm);font-weight:700;margin:3px 0 7px;}
+.ms .pb{display:block;}
+.ms .val{display:block;font-size:var(--f-2xs);color:var(--muted);margin-top:5px;}
+.ms .dsc{display:block;font-size:var(--f-2xs);color:var(--muted);margin-top:6px;line-height:1.7;}
+.ms .pb i{background:var(--orange);}
+.ms.done .pb i{background:var(--green);}
+.ms.done .val{color:var(--green);font-weight:700;letter-spacing:.1em;}
+.dif{font-size:8.5px;letter-spacing:.1em;padding:1px 5px;border-radius:2px;border:1px solid;margin-left:5px;}
+.dif.easy{color:var(--green);} .dif.standard{color:var(--amber);} .dif.stretch{color:var(--orange);}
+
+/* ---- MISSION COMPLETE ---- */
+#fx{position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+  background:rgba(4,12,19,.86);opacity:0;pointer-events:none;transition:opacity 160ms var(--ease);}
+#fx.show{opacity:1;pointer-events:auto;}
+#fx .fxin{text-align:center;padding:0 var(--s6);position:relative;}
+#fx .ring{position:absolute;left:50%;top:-14px;width:180px;height:180px;margin-left:-90px;
+  border:2px solid var(--orange);border-radius:50%;opacity:0;}
+#fx.show .ring{animation:fxring 620ms var(--ease) 60ms;}
+@keyframes fxring{0%{transform:scale(.4);opacity:0}30%{opacity:.55}100%{transform:scale(1.35);opacity:0}}
+#fx .peak{display:block;margin:0 auto var(--s4);}
+#fx .ttl{font-size:var(--f-sm);letter-spacing:.28em;font-weight:800;color:var(--orange);}
+#fx .cat{font-size:9.5px;letter-spacing:.2em;color:var(--cyan);font-weight:700;margin-top:var(--s4);}
+#fx .nm{font-size:var(--f-xl);font-weight:700;margin-top:6px;line-height:1.4;}
+#fx .more{font-size:var(--f-2xs);color:var(--muted);margin-top:8px;}
+#fx .alt{font-size:var(--f-lg);font-weight:700;color:var(--text-2);margin-top:var(--s5);
+  font-family:var(--font-num);}
+#fx.show .ttl,#fx.show .cat,#fx.show .nm,#fx.show .more,#fx.show .alt{animation:fxup 320ms var(--ease) both;}
+#fx.show .cat{animation-delay:60ms} #fx.show .nm{animation-delay:110ms}
+#fx.show .more{animation-delay:160ms} #fx.show .alt{animation-delay:200ms}
+@keyframes fxup{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+#fx.reduce .ring{display:none;}
+#fx.reduce .ttl,#fx.reduce .cat,#fx.reduce .nm,#fx.reduce .more,#fx.reduce .alt{animation:none;}
+@media (prefers-reduced-motion:reduce){ #fx .ring{display:none;}
+  #fx .ttl,#fx .cat,#fx .nm,#fx .more,#fx .alt{animation:none !important;} }
+.ach div.lapsed{opacity:.72;border-color:var(--hairline-2);}
+.ach div.lapsed b{color:var(--text-2);}
