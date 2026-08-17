@@ -126,7 +126,7 @@ function profile(t,fmtM){
      そのため密集地帯では3個ごとに必ず同じ段へ戻り、確実に再衝突していた。
      ここでは文字幅を見積もり、段ごとに「使用済みの右端」を持って左から詰める。
      どの段にも入らないものはラベルを出さず、点だけ残す（名前は下の一覧で読める）。 */
-  var LV_H=26, MAXLV=7, GAP=9;
+  var LV_H=28, MAXLV=24, GAP=9;
   function textW(s,fs){
     var w=0;
     for(var i=0;i<s.length;i++){
@@ -169,16 +169,19 @@ function profile(t,fmtM){
     rowOf[it.i]=n;
     if(rowY(n)<minTy) minTy=rowY(n);
   });
-  var peaks=items.map(function(it){
+  /* 点と引き出し線を先に、文字を後に描く。
+     ひとつの <g> にまとめると、後の峰の引き出し線が前の峰の文字を貫いてしまう。 */
+  var marks="", labels="";
+  items.forEach(function(it){
     var x=it.x, y=it.y, n=rowOf[it.i];
-    var dot='<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+(it.done?"var(--green)":"var(--muted)")+'"/>';
-    if(n==null) return '<g>'+dot+'</g>';
+    marks+='<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+(it.done?"var(--green)":"var(--muted)")+'"/>';
+    if(n==null) return;
     var ty=rowY(n);
-    return '<g>'+dot
-      + (ty<y-11?'<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>':'')
-      + '<text x="'+x+'" y="'+ty+'" fill="'+(it.done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+it.r.name+'</text>'
-      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+it.sub+'</text></g>';
-  }).join("");
+    if(ty<y-11) marks+='<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>';
+    labels+='<text x="'+x+'" y="'+ty+'" fill="'+(it.done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+it.r.name+'</text>'
+      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+it.sub+'</text>';
+  });
+  var peaks=marks+labels;
   /* 段を積んだぶん上にはみ出すので、その分だけ viewBox を上へ広げる */
   var VT=Math.min(0, minTy-14), VH=H+22-VT;
   return '<svg class="prof" width="'+W+'" height="'+VH+'" viewBox="0 '+VT+' '+W+' '+VH+'">'
