@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.12";
+var BUILD="2026-08-17.13";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -10,7 +10,7 @@ var S={schemaVersion:4,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
 var ui={screen:"home",tab:"home",cat:"mall",spotId:null,sel:{},reps:1,round:true,
-  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn"};
+  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn",sView:"sum"};
 
 /* ===== サブタブ =====
    分析と探索は中身が多い。以前は画面の最下部のボタンから奥へ潜る構造だったが、
@@ -981,12 +981,21 @@ function vEdit(){
 }
 
 /* ===== S3 分析 ===== */
+/* ===== S3 分析・概要 =====
+   カード13枚を縦に積んでいたので、性質ごとに4つに分けてチップで切り替える。
+   期間チップが効くのはサマリーの数字だけなので、サマリー内にだけ置く。 */
+var SVIEWS=[["sum","サマリー"],["trend","推移"],["area","エリア"],["ach","実績"]];
 function vStats(){
+  var v=ui.sView||"sum";
+  return '<div class="chips">'+SVIEWS.map(function(x){
+      return '<button class="chip '+(v===x[0]?"on":"")+'" data-sv="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
+    + '<div style="margin-top:var(--s3)">'
+    + (v==="trend"?sTrend():v==="area"?sArea():v==="ach"?sAch():sSum())
+    + '</div>';
+}
+function sSum(){
   var p=ui.period? D.periodStats(S,ui.period) : D.allTimeStats(S);
   var t=D.lifetime(S), k=D.tierOf(t);
-  var hm=D.heatmap(S,18), wd=D.weekday(S), mx=Math.max.apply(null,wd)||1;
-  var ar=D.areaProgress(S), ac=D.achievementView(S), got=ac.filter(function(a){return a.got;}).length;
-  var st=D.streak(S);
   function d(v){ return v==null?'<span class="d">前期間なし</span>'
     : '<span class="d '+(v>0?"up":v<0?"dn":"")+'">'+(v>0?"+":"")+v+'% 前期間</span>'; }
 
@@ -1014,9 +1023,12 @@ function vStats(){
     + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+k.tier.m.toLocaleString()+' m'
     + (k.remain>0?' — あと '+fmt(k.remain)+'m':' — 制覇')+'</div>'
     + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(k.inTier*100)+'%"></i></div>'
-    + '<button class="ghost" data-go="mountains">全行程（6座）をひらく</button></div>'
-
-    + '<div class="card"><h3>日別（直近90日）</h3><div class="scrollx" id="dayscroll"><div class="days d90">'
+    + '<button class="ghost" data-go="mountains">全行程（6座）をひらく</button></div>';
+}
+function sTrend(){
+  var hm=D.heatmap(S,18), wd=D.weekday(S), mx=Math.max.apply(null,wd)||1;
+  var st=D.streak(S);
+  return '<div class="card"><h3>日別（直近90日）</h3><div class="scrollx" id="dayscroll"><div class="days d90">'
     + (function(){ var ds=D.lastDays(S,90), mx=Math.max.apply(null,ds.map(function(d){return d.m;}))||1;
         return ds.map(function(d,i){
           var first=(d.date.slice(8)==="01");
@@ -1041,24 +1053,6 @@ function vStats(){
         return '<div><i style="height:'+Math.max(2,wd[i]/mx*56)+'px"></i><span>'+l+'</span></div>'; }).join("")
     + '</div></div>'
 
-    + '<div class="card"><h3>エリア制覇</h3>'
-    + ar.map(function(a){ return '<div class="bl"><span class="nm">'+esc(a.area)+'</span>'
-        + '<span class="pb"><i style="width:'+(a.done/a.total*100)+'%"></i></span>'
-        + '<span class="ct num">'+a.done+'/'+a.total+'</span></div>'; }).join("")+'</div>'
-
-    + (function(){ var cs=D.monthlyCerts(S).slice(0,4);
-        if(!cs.length) return '';
-        return '<div class="card"><h3>月間認定</h3>'
-          + cs.map(function(c){
-              return '<div class="bl"><span class="nm">'+c.month.replace("-","/")+'</span>'
-                + '<span class="pb"><i style="width:'+Math.round(c.ratio*100)+'%"></i></span>'
-                + '<span class="ct num">'+fmt(c.m)+'m</span></div>'
-                + '<div class="note" style="margin:0 0 9px">'
-                + (c.mountain?'<b style="color:var(--green)">'+esc(c.mountain.name)+' 認定</b>'
-                            :'認定なし')
-                + (c.next?' ・ '+esc(c.next.name)+'まで あと '+fmt(c.remain)+'m':'')+'</div>'; }).join("")
-          + '<div class="note" style="margin-bottom:0">累計とは別に、その月の合計だけで判定します。毎月リセットです。</div></div>'; })()
-
     + (function(){ var g=D.ghost(S);
         if(!g.curM&&!g.prevM) return '';
         var mx=Math.max(Math.max.apply(null,g.cur),Math.max.apply(null,g.prev),1);
@@ -1076,7 +1070,14 @@ function vStats(){
           + '<div class="bl"><span class="nm">先月 同日</span><span class="ct num">'+fmt(g.prevM)+'m</span></div>'
           + '<div class="note" style="margin-bottom:0">'
           + (g.lead>=0?'<b style="color:var(--green)">'+fmt(g.lead)+'m リード</b>'
-                      :fmt(-g.lead)+'m ビハインド')+'</div></div>'; })()
+                      :fmt(-g.lead)+'m ビハインド')+'</div></div>'; })();
+}
+function sArea(){
+  var ar=D.areaProgress(S);
+  return '<div class="card"><h3>エリア制覇</h3>'
+    + ar.map(function(a){ return '<div class="bl"><span class="nm">'+esc(a.area)+'</span>'
+        + '<span class="pb"><i style="width:'+(a.done/a.total*100)+'%"></i></span>'
+        + '<span class="ct num">'+a.done+'/'+a.total+'</span></div>'; }).join("")+'</div>'
 
     + (function(){ var tv=D.traverses(S).slice(0,5);
         if(!tv.length) return '';
@@ -1085,7 +1086,22 @@ function vStats(){
               return '<div class="row" style="background:var(--surface-2)"><span class="mk boss"></span>'
                 + '<span class="bd"><span class="nm">'+esc(t.area)+' 縦走 ×'+t.n+'</span>'
                 + '<span class="sb">'+t.date.slice(5).replace("-","/")+' ・ '+esc(t.spots.join(" → "))+'</span></span></div>'; }).join("")
-          + '<div class="note" style="margin-bottom:0">1日で同じエリアの2ヶ所以上を登ると成立します。</div></div>'; })()
+          + '<div class="note" style="margin-bottom:0">1日で同じエリアの2ヶ所以上を登ると成立します。</div></div>'; })();
+}
+function sAch(){
+  var ac=D.achievementView(S), got=ac.filter(function(a){return a.got;}).length;
+  return (function(){ var cs=D.monthlyCerts(S).slice(0,4);
+        if(!cs.length) return '';
+        return '<div class="card"><h3>月間認定</h3>'
+          + cs.map(function(c){
+              return '<div class="bl"><span class="nm">'+c.month.replace("-","/")+'</span>'
+                + '<span class="pb"><i style="width:'+Math.round(c.ratio*100)+'%"></i></span>'
+                + '<span class="ct num">'+fmt(c.m)+'m</span></div>'
+                + '<div class="note" style="margin:0 0 9px">'
+                + (c.mountain?'<b style="color:var(--green)">'+esc(c.mountain.name)+' 認定</b>'
+                            :'認定なし')
+                + (c.next?' ・ '+esc(c.next.name)+'まで あと '+fmt(c.remain)+'m':'')+'</div>'; }).join("")
+          + '<div class="note" style="margin-bottom:0">累計とは別に、その月の合計だけで判定します。毎月リセットです。</div></div>'; })()
 
     + (function(){ var c=D.condStats(S);
         if(!c.early&&!c.night&&!c.rain) return '';
@@ -1572,6 +1588,7 @@ var ACTIONS={
   breakby:function(v){ ui.breakBy=v; render(); },
   cfil:function(v){ ui.cFilter=v; render(); },
   fcv:function(v){ ui.fcView=v; render(); },
+  sv:function(v){ ui.sView=v; try{window.scrollTo(0,0);}catch(e){} render(); },
   pacebase:function(v){ ui.paceBase=v; if(v!=="manual") ui.pace=null; render(); },
   delm:function(v){ D.removeMeasure(S,v); save(); render(); toast("削除しました"); },
   stairs:function(v){ D.setStairs(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("保存しました"); },
@@ -1631,7 +1648,7 @@ var ACTS={
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","pacebase","del","delm",
+var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
           "rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){
