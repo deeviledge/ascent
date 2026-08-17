@@ -21,6 +21,20 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 #bars svg:not(.mt):not(.prof),#app svg:not(.mt):not(.prof){width:20px;height:20px;flex:0 0 auto;}
 .ico:active{background:var(--surface-2);}
 
+/* ---- サブタブ（分析・探索の中の切り替え） ----
+   ヘッダー直下に貼りつく。項目が増えても折り返さず横スクロールさせる。 */
+.subtabs{position:sticky;top:0;z-index:calc(var(--z-bar) - 2);
+  margin:0 calc(var(--s4) * -1) var(--s3);padding:var(--s2) 0;
+  background:var(--ink-1);border-bottom:var(--hair) solid var(--hairline);}
+.subtabs .in{display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;padding:0 var(--s4);scrollbar-width:none;}
+.subtabs .in::-webkit-scrollbar{display:none;}
+.subtabs button{flex:0 0 auto;padding:8px 14px;font-size:var(--f-sm);font-weight:600;
+  color:var(--text-2);background:var(--surface);white-space:nowrap;
+  border:var(--hair) solid var(--hairline);border-radius:999px;}
+.subtabs button.on{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700;}
+.subtabs button:active{transform:scale(.97);}
+
 /* ---- 山ヒーロー ---- */
 .hero{position:relative;border:var(--hair) solid var(--hairline);border-radius:var(--r-lg);
   overflow:hidden;background:var(--sky);}

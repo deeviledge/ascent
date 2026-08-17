@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.10";
+var BUILD="2026-08-17.11";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -10,7 +10,19 @@ var S={schemaVersion:4,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
 var ui={screen:"home",tab:"home",cat:"mall",spotId:null,sel:{},reps:1,round:true,
-  editSpot:null,period:30,draft:null,summitFx:null,undo:null};
+  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live"};
+
+/* ===== サブタブ =====
+   分析と探索は中身が多い。以前は画面の最下部のボタンから奥へ潜る構造だったが、
+   ヘッダー直下の横並びで直接切り替える。SUBS の並び順がそのまま表示順になる。 */
+var SUBS={
+  stats:[["stats","概要"],["energy","エネルギー"],["body","ボディ"],["forecast","予測"],["presence","存在感"]],
+  spots:[["spots","地点"],["map","攻略マップ"],["complete","コンプリート"],["cards","カード"]]
+};
+/* 画面 → 所属するサブタブ群 */
+var SUBOF=(function(){ var o={};
+  Object.keys(SUBS).forEach(function(g){ SUBS[g].forEach(function(x){ o[x[0]]=g; }); });
+  return o; })();
 
 /* ===== 保存 ===== */
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }
@@ -84,14 +96,27 @@ function render(){
   else if(ui.screen==="spot") body=vSpotDetail();
   else if(ui.screen==="newspot") body=vNewSpot();
   else if(ui.screen==="settings") body=vSettings();
-  $("app").innerHTML=header()+body;
+  $("app").innerHTML=header()+subtabs()+body;
   $("bars").innerHTML=((ui.screen==="home"||ui.screen==="spots")?repeatBar():"")+tabs();
   bind();
 }
+/* 現在の画面がサブタブ群に属していれば、その切り替えバーを返す */
+function subtabs(){
+  var g=SUBOF[ui.screen];
+  if(!g) return "";
+  return '<nav class="subtabs" aria-label="表示の切り替え"><div class="in">'
+    + SUBS[g].map(function(x){
+        var on=(x[0]===ui.screen);
+        return '<button data-go="'+x[0]+'" class="'+(on?"on":"")+'"'
+          + (on?' aria-current="page"':'')+'>'+esc(x[1])+'</button>'; }).join("")
+    + '</div></nav>';
+}
 
 function header(){
-  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home",body:"stats",map:"spots",
-    edit:"history",cards:"spots",presence:"stats",mdetail:"mission",complete:"spots",energy:"stats",forecast:"stats"}[ui.screen];
+  /* サブタブで横に並んだ画面は入れ子ではないので、戻るボタンは出さない */
+  var back=SUBOF[ui.screen]?null:
+    {record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home",
+     edit:"history",mdetail:"mission"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
     spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
     mountains:"全行程",mission:"今週の遠征",recap:"週の記録",
@@ -746,11 +771,7 @@ function vEnergy(){
     + cb.rows.map(function(r){
         return '<div class="vrow"><span style="color:'+CONFC[r.name]+'">'+r.name+'</span>'
           + '<b class="num">'+Math.round(r.ratio*100)+'%</b></div>'; }).join("")
-    + '<div class="note" style="margin-bottom:0">現地で段数や高さを測るほど、実測の割合が増えます。</div></div>'
-
-    + '<div class="card"><h3>予測</h3>'
-    + '<div class="note">このペースで続けたら、どこまで積み上がるか。</div>'
-    + '<button class="ghost" data-go="forecast">予測をひらく</button></div>';
+    + '<div class="note" style="margin-bottom:0">現地で段数や高さを測るほど、実測の割合が増えます。</div></div>';
 }
 
 /* ===== 予測（積み上げの延長） ===== */
@@ -834,15 +855,39 @@ function vComplete(){
   var live=all.filter(function(c){ return c.got>0 && !c.done; });
   var done=all.filter(function(c){ return c.done; });
   var yet=all.filter(function(c){ return c.got<=0; });
-  return '<div class="card"><h3>全体</h3>'
-    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+ov.done+'<i>/'+ov.total+'</i></span>'
-    + '<span class="k">コンプリートした地点</span></div>'
-    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+(ov.total?ov.done/ov.total*100:0)+'%"></i></div>'
-    + '<div class="vrow" style="margin-top:var(--s3)"><span>総合達成率</span>'
-    + '<b class="num">'+Math.round(ov.ratio*100)+'%</b></div>'
-    + '<div class="vrow"><span>積み上げ</span><b class="num">'+fmt(ov.got)+' / '+fmt(ov.target)+' m</b></div>'
+  var pct=Math.round(ov.ratio*100);
+  var f=ui.cFilter||"live";
+  var GROUPS={ live:{label:"進行中",rows:live}, done:{label:"達成済み",rows:done},
+               yet:{label:"未着手",rows:yet}, all:{label:"すべて",rows:all} };
+  var cur=GROUPS[f]||GROUPS.live;
+
+  return '<div class="card"><h3>総合進捗</h3>'
+    /* いちばん見たい数字は達成率。以前は下の vrow に埋まっていたのでヒーローに上げた。 */
+    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+pct+'<i>%</i></span>'
+    + '<span class="k">'+fmt(ov.got)+' / '+fmt(ov.target)+' m</span></div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+pct+'%"></i></div>'
+    + '<div class="stats" style="margin-top:var(--s3)">'
+    + '<div><div class="k">コンプリート</div><div class="v num">'+ov.done+'<i>/'+ov.total+'</i></div>'
+    + '<span class="d">地点</span></div>'
+    + '<div><div class="k">残り</div><div class="v num">'+fmt(Math.max(0,ov.target-ov.got))+'<i>m</i></div>'
+    + '<span class="d">全体の'+Math.max(0,100-pct)+'%</span></div></div>'
     + '<div class="note" style="margin-bottom:0">目標は「その施設の全区間の合計 × 倍率」。'
     + 'どの区間で稼いでも構いません。閉鎖中の階段があっても、別の区間で同じ高さを登れば達成できます。</div></div>'
+
+    /* 3つのセクションを縦に全部並べていたので、チップで切り替える */
+    + '<div class="chips">'+["live","yet","done","all"].map(function(k){
+        return '<button class="chip '+(f===k?"on":"")+'" data-cfil="'+k+'">'
+          + GROUPS[k].label+' '+GROUPS[k].rows.length+'</button>'; }).join("")+'</div>'
+
+    + '<div style="margin-top:var(--s3)">'
+    + (cur.rows.length
+        ? cur.rows.map(function(c){
+            return (c.got>0||c.done) ? compBar(c)
+              : '<button class="row" data-spot="'+c.id+'"><span class="mk boss"></span>'
+                + '<span class="bd"><span class="nm">'+esc(c.name)+'</span>'
+                + '<span class="sb num">目標 '+fmt(c.target)+'m（'+fmt(c.base)+'m ×'+c.mult+'）</span></span></button>'; }).join("")
+        : '<div class="empty">この区分の地点はありません。</div>')
+    + '</div>'
 
     + '<div class="card"><h3>エリア</h3>'
     + ar.map(function(a){
@@ -851,14 +896,6 @@ function vComplete(){
           + '<span class="ct num">'+a.done+'/'+a.total+'</span></div>'; }).join("")
     + '<div class="note" style="margin-bottom:0">バーは高さの達成率、右の数字はコンプリートした地点数です。</div></div>'
 
-    + (live.length?'<div class="card"><h3>進行中 '+live.length+'</h3>'+live.map(compBar).join("")+'</div>':'')
-    + (done.length?'<div class="card"><h3>コンプリート '+done.length+'</h3>'+done.map(compBar).join("")+'</div>':'')
-    + (yet.length?'<div class="card"><h3>未着手 '+yet.length+'</h3>'
-        + yet.slice(0,40).map(function(c){
-            return '<button class="row" data-spot="'+c.id+'"><span class="mk boss"></span>'
-              + '<span class="bd"><span class="nm">'+esc(c.name)+'</span>'
-              + '<span class="sb num">目標 '+fmt(c.target)+'m（'+fmt(c.base)+'m ×'+c.mult+'）</span></span></button>'; }).join("")
-        + '</div>':'')
     + '<div class="card"><h3>倍率</h3>'
     + [["400m以上","×1"],["300m以上","×2"],["200m以上","×3"],["100m以上","×5"],["100m未満","×10"]]
         .map(function(x){ return '<div class="vrow"><span>'+x[0]+'</span><b class="num">'+x[1]+'</b></div>'; }).join("")
@@ -1030,19 +1067,6 @@ function vStats(){
           + '<div class="vrow"><span>夜（21時以降）</span><b class="num">'+c.night+' 回</b></div>'
           + '<div class="vrow"><span>雨の日</span><b class="num">'+c.rain+' 回</b></div></div>'; })()
 
-    + '<div class="card"><h3>エネルギー分析</h3>'
-    + '<div class="note">消費エネルギーと脂肪換算を、時間・場所・行動・確度の軸で見る。</div>'
-    + '<div class="mini" style="margin-bottom:0"><button data-go="energy">エネルギーをひらく</button>'
-    + '<button data-go="forecast">予測をひらく</button></div></div>'
-
-    + '<div class="card"><h3>垂直的存在感</h3>'
-    + '<div class="note">今週、都市の中でどれだけ上へ進んだか。</div>'
-    + '<button class="ghost" data-go="presence">バーティカルプレゼンスをひらく</button></div>'
-
-    + '<div class="card"><h3>ボディインパクト</h3>'
-    + '<div class="note">登った結果として、身体にどれだけ積み上がったか。</div>'
-    + '<button class="ghost" data-go="body">ボディインパクトをひらく</button></div>'
-
     + '<div class="card"><h3>実績 '+got+'/'+ac.length+'</h3><div class="ach">'
     + ac.map(function(a){ return '<div class="'+(a.got?"got":"")+(a.lapsed?" lapsed":"")+'"><b>'+esc(a.name)+'</b>'
         + '<span>'+esc(a.lapsed?"解除済み（現在は条件外）":a.desc)+'</span></div>'; }).join("")
@@ -1080,12 +1104,6 @@ function vSpots(){
     : D.allSpots(S).filter(function(s){return s.cat===ui.cat;});
   return '<div class="card"><h3>探索 '+ex.done+' / '+ex.total+'</h3>'
     + '<div class="pb"><i style="width:'+(ex.done/ex.total*100)+'%"></i></div>'
-    + '<div class="mini" style="margin-top:var(--s3);margin-bottom:0">'
-    + '<button data-go="map">都市攻略マップ</button>'
-    + '<button data-go="cards">地点カード</button></div>'
-    + (function(){ var ov=D.overallComplete(S);
-        return '<button class="ghost" data-go="complete">コンプリート '+ov.done+' / '+ov.total
-          + '　（総合 '+Math.round(ov.ratio*100)+'%）</button>'; })()
     + '<button class="ghost" data-go="newspot">＋ 新しい地点を追加</button></div>'
     + '<div class="chips" style="margin-top:var(--s3)">'
     + CATS.map(function(c){ return '<button class="chip '+(ui.cat===c[0]?"on":"")+'" data-cat="'+c[0]+'">'+c[1]+'</button>'; }).join("")
@@ -1525,6 +1543,7 @@ var ACTIONS={
   eper:function(v){ ui.ePeriod=Number(v); render(); },
   metric:function(v){ ui.metric=v; render(); },
   breakby:function(v){ ui.breakBy=v; render(); },
+  cfil:function(v){ ui.cFilter=v; render(); },
   pacebase:function(v){ ui.paceBase=v; if(v!=="manual") ui.pace=null; render(); },
   delm:function(v){ D.removeMeasure(S,v); save(); render(); toast("削除しました"); },
   stairs:function(v){ D.setStairs(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("保存しました"); },
@@ -1584,7 +1603,7 @@ var ACTS={
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","pacebase","del","delm",
+var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
           "rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){
