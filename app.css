@@ -52,9 +52,9 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:var(--z-bar);display:flex;
   background:var(--ink-0);border-top:var(--hair) solid var(--hairline);
   padding-bottom:env(safe-area-inset-bottom);}
-.tabs button{flex:1;min-width:0;padding:10px 2px 9px;display:grid;justify-items:center;gap:3px;
-  font-size:var(--f-2xs);color:var(--muted);font-weight:600;}
-.tabs button svg{width:20px;height:20px;}
+.tabs button{flex:1;min-width:0;padding:9px 1px 8px;display:grid;justify-items:center;gap:3px;
+  font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;}
+.tabs button svg{width:19px;height:19px;}
 .tabs button.on{color:var(--orange);}
 
 /* ---- 直前と同じ（固定バー） ---- */
@@ -242,7 +242,7 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 /* ---- 全行程（6座） ---- */
 .ladderL{display:flex;justify-content:space-between;align-items:center;width:100%;
   font-size:var(--f-2xs);color:var(--muted);margin-top:5px;padding:2px 0;text-align:left;}
-.ladderL span:last-child{color:var(--cyan);font-weight:700;}
+.ladderL span:last-child{color:var(--text-2);font-weight:600;}
 .mrow{display:flex;align-items:flex-start;gap:var(--s3);padding:11px 0;
   border-bottom:var(--hair) solid var(--hairline);}
 .mrow:last-child{border-bottom:none;}
@@ -338,3 +338,8 @@ svg.prof{display:block;}
 .vrow:last-of-type{border-bottom:none;}
 .vrow span{color:var(--muted);font-size:var(--f-xs);}
 .vrow b.okk{color:var(--green);} .vrow b.ng{color:var(--danger);}
+
+/* ---- エラー表示（黙って無反応になるより、必ず理由を出す） ---- */
+#err{display:none;}
+#err.show{display:block;margin:var(--s3) 0;padding:11px 13px;border-radius:var(--r-sm);
+  border:1px solid var(--danger);color:var(--danger);font-size:var(--f-xs);line-height:1.7;}

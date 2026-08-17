@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.1";
+var BUILD="2026-08-17.4";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -80,22 +80,22 @@ function render(){
 }
 
 function header(){
-  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mountains:"home",mission:"home",recap:"home"}[ui.screen];
+  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
     spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
     mountains:"全行程",mission:"今週の遠征",recap:"週の記録"}[ui.screen];
   return '<div class="hd">'
     + (back?'<button class="ico" data-go="'+back+'" aria-label="戻る">'+icon("back")+'</button>':"")
     + '<div class="brand">'+esc(title)+(ui.screen==="home"?'<small>都市を、登れ。</small>':"")+'</div>'
-    + '<button class="ico" id="thm" aria-label="表示を切り替える">'+icon(S.settings.theme==="light"?"moon":"sun")+'</button>'
+    + '<button class="ico" data-act="theme" aria-label="表示を切り替える">'+icon(S.settings.theme==="light"?"moon":"sun")+'</button>'
     + (ui.screen==="home"?'<button class="ico" data-go="settings" aria-label="設定">'+icon("gear")+'</button>':"")
     + '</div>';
 }
 function tabs(){
-  var T=[["home","ホーム","home"],["stats","分析","chart"],
+  var T=[["home","ホーム","home"],["mountains","全行程","mountain"],["stats","分析","chart"],
          ["spots","探索","map"],["history","履歴","history"]];
   // 地点の詳細・追加から来たときも「探索」を点灯させる
-  var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mountains:"home",mission:"home"}[ui.screen]||ui.screen;
+  var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mission:"home",recap:"home"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
     return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
@@ -103,10 +103,10 @@ function tabs(){
 function repeatBar(){
   var e=S.entries[0];
   if(!e || S.settings.repeatBar===false || ui.hideRepeat) return "";
-  return '<div class="repeat"><button id="again">'+icon("repeat")
+  return '<div class="repeat"><button data-act="again">'+icon("repeat")
     +'<span class="t"><b>直前と同じ</b><span>'+esc(e.name)+' · '+fmt(e.unitM)+'m × '+e.reps+'</span></span>'
     +'<span class="v num">'+fmt(e.meters)+'m</span></button>'
-    +'<button id="hideRep" class="rx" aria-label="このバーを隠す">×</button></div>';
+    +'<button data-act="hideRep" class="rx" aria-label="このバーを隠す">×</button></div>';
 }
 
 /* ===== S1 ホーム ===== */
@@ -129,9 +129,8 @@ function vHome(){
     + '<div class="ladder">'+D.RANKS.map(function(r,i){
         var done=t>=r.m, prev=D.BOUNDS[i], w=done?100:Math.max(0,Math.min(100,(t-prev)/(r.m-prev)*100));
         return '<div class="sg '+(done?"done":"")+'"><i style="width:'+w+'%"></i></div>'; }).join("")
-    + '</div><button class="ladderL" data-go="mountains"><span>制覇 '+k.cleared+'/6'
-    + (k.done?'':' · 次は '+esc(D.RANKS[Math.min(5,k.idx+1)].name))+'</span>'
-    + '<span>全行程を見る ›</span></button>'
+    + '</div><div class="ladderL"><span>制覇 '+k.cleared+'/6</span>'
+    + '<span>'+(k.done?'全6座 制覇':'次は '+esc(D.RANKS[Math.min(5,k.idx+1)].name))+'</span></div>'
 
     + todayCard()
     + recapCard()
@@ -234,7 +233,7 @@ function vRecap(){
     + '<div class="card" style="text-align:center"><div style="font-size:var(--f-md);font-weight:700">'
     + (w.m>0?'今週も、ひとつ高くなった。':'次の遠征は今日から始まります。')+'</div>'
     + '<div class="note" style="border:none;justify-content:center;margin-bottom:0">Keep climbing.</div></div>'
-    + '<button class="ghost" id="recapSeen">確認した</button>';
+    + '<button class="ghost" data-act="recapSeen">確認した</button>';
 }
 
 /* 今日の積み上げ。日々の手応えは週や生涯より先に見えるべき。 */
@@ -278,8 +277,8 @@ function vRecord(){
     + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(sp.name)+'</div>'
     + (sp.note?'<div class="note">'+esc(sp.note)+'</div>':'')+'</div>'
     + '<div class="card"><h3>登った区間</h3>'
-    + '<div class="mini"><button id="selAll">全区間</button><button id="selFree">改札外のみ</button>'
-    + '<button id="selNone">クリア</button></div>'
+    + '<div class="mini"><button data-act="selAll">全区間</button><button data-act="selFree">改札外のみ</button>'
+    + '<button data-act="selNone">クリア</button></div>'
     + (sp.segs.length? sp.segs.map(function(g){
         var r=D.resolve(S,sp,g), on=!!ui.sel[g.id];
         return '<label class="seg '+(on?"on":"")+'"><input type="checkbox" data-seg="'+g.id+'" '+(on?"checked":"")+'>'
@@ -287,15 +286,15 @@ function vRecord(){
           + '<span class="cf '+r.cls+'">'+r.conf+'</span><span class="m num">'+fmt(r.m)+'m</span></label>';
       }).join("") : '<div class="empty">区間が未登録です。</div>')
     + '<div class="fr" style="margin-top:var(--s4)"><label>本数</label>'
-    + '<span class="stepper"><button id="minus">−</button>'
-    + '<input id="reps" type="number" inputmode="numeric" value="'+ui.reps+'"><button id="plus">＋</button></span></div>'
+    + '<span class="stepper"><button data-act="minus">−</button>'
+    + '<input id="reps" type="number" inputmode="numeric" value="'+ui.reps+'"><button data-act="plus">＋</button></span></div>'
     + '<div class="fr"><label>下りも歩いた（＋30%）</label>'
     + '<input type="checkbox" id="rt" '+(ui.round?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
     + '</div>'
     + '<div class="card" style="text-align:center">'
     + '<div class="big num" style="font-size:var(--f-hero);font-weight:700">'+fmt(add)+'<i style="font-style:normal;font-size:var(--f-lg);color:var(--muted)">m</i></div>'
     + '<div class="note" style="border:none;justify-content:center;padding:0;margin-top:6px">約 '+kc.toLocaleString()+' kcal ・ 約 '+st.toLocaleString()+' 段</div>'
-    + '<button class="primary" id="commit" '+(add>0?"":"disabled")+'>記録する</button></div>';
+    + '<button class="primary" data-act="commit" '+(add>0?"":"disabled")+'>記録する</button></div>';
 }
 
 /* ===== 全行程（6座） ===== */
@@ -387,7 +386,7 @@ function vStats(){
     + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+k.tier.m.toLocaleString()+' m'
     + (k.remain>0?' — あと '+fmt(k.remain)+'m':' — 制覇')+'</div>'
     + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(k.inTier*100)+'%"></i></div>'
-    + '<button class="ghost" data-go="mountains">6座すべての進捗を見る</button></div>'
+    + '<button class="ghost" data-go="mountains">全行程（6座）をひらく</button></div>'
 
     + '<div class="card"><h3>日別（直近90日）</h3><div class="scrollx" id="dayscroll"><div class="days d90">'
     + (function(){ var ds=D.lastDays(S,90), mx=Math.max.apply(null,ds.map(function(d){return d.m;}))||1;
@@ -548,11 +547,11 @@ function vNewSpot(){
     + spotWarn.map(function(w){ return '<div class="warn">'+esc(w.msg)+'</div>'; }).join("")+'</div>'
 
     + d.segs.map(function(s,i){ return segEditor(s,i,floorH); }).join("")
-    + '<button class="ghost" id="addSeg">＋ 区間を追加</button>'
+    + '<button class="ghost" data-act="addSeg">＋ 区間を追加</button>'
 
     + '<div class="card"><div class="fr"><label>区間の合計</label><span class="num" style="font-weight:700">'+fmt(segSum)+' m</span></div>'
     + (num(d.totalM)?'<div class="note">公表 '+d.totalM+'m との差 '+fmt(Math.abs(segSum-num(d.totalM)))+'m</div>':'')
-    + '<button class="primary" id="saveSpot" '+(d.name.trim()&&segSum>0?"":"disabled")+'>この地点を追加</button></div>';
+    + '<button class="primary" data-act="saveSpot" '+(d.name.trim()&&segSum>0?"":"disabled")+'>この地点を追加</button></div>';
 }
 function segHeight(s,floorH){
   if(num(s.height)) return num(s.height);
@@ -572,8 +571,8 @@ function segEditor(s,i,floorH){
     + (Object.keys(der).length?'<div class="hint">薄い欄は自動計算です。上書きすると手入力に変わります。</div>':'')
     + w.map(function(x,j){
         if(x.lv==="conflict") return '<div class="warn conflict">'+esc(x.msg)
-          + '<div class="pick"><button data-fix="'+i+'" data-h="'+x.a.height+'">'+esc(x.a.label)+'</button>'
-          + '<button data-fix="'+i+'" data-h="'+x.b.height+'">'+esc(x.b.label)+'</button></div></div>';
+          + '<div class="pick"><button data-act="fixseg" data-i="'+i+'" data-h="'+x.a.height+'">'+esc(x.a.label)+'</button>'
+          + '<button data-act="fixseg" data-i="'+i+'" data-h="'+x.b.height+'">'+esc(x.b.label)+'</button></div></div>';
         return '<div class="warn">'+esc(x.msg)+'</div>'; }).join("")
     + '<div class="fr" style="margin-top:var(--s2)"><label>この区間の高さ</label>'
     + '<span class="num" style="font-weight:700">'+fmt(segHeight(s,floorH))+' m</span></div>'
@@ -602,19 +601,16 @@ function vSettings(){
     + '<div class="vrow"><span>ビルド</span><b class="num">'+BUILD+'</b></div>'
     + '<div class="vrow"><span>データ形式</span><b class="num">v'+(S.schemaVersion||"?")+'</b></div>'
     + '<div class="vrow"><span>キャッシュ</span><b class="num" id="swv">確認中…</b></div>'
-    + ['地点マスタ:'+(window.SEED?"OK":"未読込"),
-       'ミッション:'+(window.M?"OK":"未読込"),
-       '断面図:'+(window.Mountain&&window.Mountain.profile?"OK":"未読込"),
-       '移行:'+(window.AscentMigrate?"OK":"未読込"),
-       'イベント:'+(D.buildEvents?"OK":"未読込")]
-       .map(function(x){ var ng=x.indexOf("未読込")>=0;
-         return '<div class="vrow"><span>'+x.split(":")[0]+'</span><b class="'+(ng?"ng":"okk")+'">'+x.split(":")[1]+'</b></div>'; }).join("")
+    + REQUIRED.map(function(r){
+        var okk=false; try{ okk=!!r[1](); }catch(e){}
+        return '<div class="vrow"><span>'+r[0]+'</span><b class="'+(okk?"okk":"ng")+'">'
+          +(okk?"OK":"古い/未着")+'</b></div>'; }).join("")
     + '<div class="note">「未読込」があると、そのファイルが古いか届いていません。</div>'
-    + '<button class="ghost" id="hardReload">キャッシュを捨てて読み直す</button></div>'
+    + '<button class="ghost" data-act="hardReload">キャッシュを捨てて読み直す</button></div>'
 
     + '<div class="card"><h3>バックアップ</h3>'
     + '<div class="note">記録はこの端末の中にしかありません。ブラウザのデータを消すと戻せないので、ときどき書き出してファイルを残してください。現在 '+S.entries.length+'件。</div>'
-    + '<div class="mini"><button id="expJ">書き出す</button><button id="impJ">読み込む</button></div>'
+    + '<div class="mini"><button data-act="expJ">書き出す</button><button data-act="impJ">読み込む</button></div>'
     + '<input id="impF" type="file" accept="application/json,.json" style="display:none"></div>'
 
     + '<div class="card"><h3>計算について</h3><div class="note">'
@@ -763,130 +759,178 @@ function playFx(){
 }
 var fxT;
 
-/* ===== イベント ===== */
-function bind(){
-  // 断面図は現在地が見える位置から始める。日別は右端（今日）から。
-  var pf=$("prof");
-  if(pf) pf.scrollLeft=Math.max(0,Mountain.flagX(D.lifetime(S))-pf.clientWidth*0.45);
-  var dz=$("dayscroll");
-  if(dz) dz.scrollLeft=dz.scrollWidth;
-
-  qa("[data-go]").forEach(function(b){ b.onclick=function(){
-    ui.screen=b.dataset.go; if(ui.screen==="newspot") ui.draft=blankDraft(); window.scrollTo(0,0); render(); }; });
-  if($("thm")) $("thm").onclick=toggleTheme;
-  if($("thm2")) $("thm2").onchange=toggleTheme;
-  if($("again")) $("again").onclick=repeatLast;
-  if($("hideRep")) $("hideRep").onclick=function(){
-    ui.hideRepeat=true; render();
-    toast("バーを隠しました",null,{label:"元に戻す",fn:function(){ ui.hideRepeat=false; render(); }}); };
-
-  qa("[data-pick]").forEach(function(b){ b.onclick=function(){
-    var sp=D.spotOf(S,b.dataset.pick); if(!sp) return;
-    ui.spotId=sp.id; ui.sel={}; sp.segs.forEach(function(g){ ui.sel[g.id]=true; });
-    ui.reps=1; ui.screen="record"; window.scrollTo(0,0); render(); }; });
-  qa("[data-spot]").forEach(function(b){ b.onclick=function(){
-    ui.editSpot=b.dataset.spot; ui.screen="spot"; window.scrollTo(0,0); render(); }; });
-  qa("[data-cat]").forEach(function(b){ b.onclick=function(){ ui.cat=b.dataset.cat; render(); }; });
-  qa("[data-per]").forEach(function(b){ b.onclick=function(){ ui.period=Number(b.dataset.per); render(); }; });
-  qa("[data-del]").forEach(function(b){ b.onclick=function(){
-    S.entries=S.entries.filter(function(x){ return String(x.id)!==b.dataset.del; });
-    D.recomputeSummits(S); M.ensure(S); save(); render(); }; });
-
-  qa("[data-seg]").forEach(function(b){ b.onchange=function(){ ui.sel[b.dataset.seg]=b.checked; render(); }; });
-  if($("selAll"))  $("selAll").onclick=function(){ D.spotOf(S,ui.spotId).segs.forEach(function(g){ui.sel[g.id]=true;}); render(); };
-  if($("selFree")) $("selFree").onclick=function(){ D.spotOf(S,ui.spotId).segs.forEach(function(g){ui.sel[g.id]=!g.paid;}); render(); };
-  if($("selNone")) $("selNone").onclick=function(){ ui.sel={}; render(); };
-  if($("minus")) $("minus").onclick=function(){ ui.reps=Math.max(1,Number(ui.reps)-1); render(); };
-  if($("plus"))  $("plus").onclick=function(){ ui.reps=Number(ui.reps)+1; render(); };
-  if($("reps"))  $("reps").onchange=function(e){ ui.reps=Math.max(1,Number(e.target.value)||1); render(); };
-  if($("rt"))    $("rt").onchange=function(e){ ui.round=e.target.checked; render(); };
-  if($("commit")) $("commit").onclick=commit;
-
-  if($("w"))      $("w").onchange=function(e){ S.weight=Number(e.target.value)||60; save(); render(); };
-  if($("bRise"))  $("bRise").onchange=function(e){ var v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render(); };
-  if($("bFloor")) $("bFloor").onchange=function(e){ var v=num(e.target.value); if(v)S.baseFloorH=v; save(); render(); };
-
-  qa(".sIn").forEach(function(i){ i.onchange=function(e){
-    var o=D.ovW(S,ui.editSpot), k=i.dataset.k, v=num(e.target.value);
-    if(v==null) delete o[k]; else o[k]=(k==="rise")?v/1000:v;
-    D.pruneOver(S); save(); render(); toast("保存しました"); }; });
-  qa(".gIn").forEach(function(i){ i.onchange=function(e){
-    var so=D.segOvW(S,ui.editSpot,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
-    if(v==null) delete so[k]; else so[k]=(k==="rise")?v/1000:v;
-    D.pruneOver(S); save(); render(); toast("保存しました"); }; });
-  qa("[data-base]").forEach(function(b){ b.onclick=function(){
-    S.baseRise=Number(b.dataset.base)/1000; save(); render();
-    toast("基準の蹴上げを "+b.dataset.base+"mm にしました"); }; });
-  qa("[data-clear]").forEach(function(b){ b.onclick=function(){
-    delete S.over[b.dataset.clear]; save(); render(); toast("設定を消しました"); }; });
-  qa(".mIn").forEach(function(i){ i.onchange=function(e){
-    var k=i.dataset.k, v=e.target.value.trim();
-    D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));
-    D.pruneOver(S); save(); render(); toast("保存しました"); }; });
-  qa("[data-mcat]").forEach(function(b){ b.onclick=function(){
-    D.setMeta(S,ui.editSpot,"cat",b.dataset.mcat); save(); render(); toast("保存しました"); }; });
-  qa("[data-resetmeta]").forEach(function(b){ b.onclick=function(){
-    D.resetMeta(S,b.dataset.resetmeta); D.pruneOver(S); save(); render(); toast("元に戻しました"); }; });
-  qa("[data-hide]").forEach(function(b){ b.onclick=function(){
-    D.ovW(S,b.dataset.hide).hidden=true; save(); ui.screen="spots"; render();
-    toast("一覧から隠しました",null,{label:"取り消す",fn:function(){
-      delete S.over[b.dataset.hide].hidden; D.pruneOver(S); save(); render(); }}); }; });
-  qa("[data-show]").forEach(function(b){ b.onclick=function(){
-    var o=S.over[b.dataset.show]; if(o) delete o.hidden;
-    D.pruneOver(S); save(); render(); toast("一覧に戻しました"); }; });
-  qa("[data-delspot]").forEach(function(b){ b.onclick=function(){
-    if(!confirm("この地点を完全に削除します。計測した値も消えます。\n過去の記録は残ります。続けますか？")) return;
-    S.customSpots=S.customSpots.filter(function(s){ return s.id!==b.dataset.delspot; });
-    delete S.over[b.dataset.delspot];
-    save(); ui.screen="spots"; ui.cat="mall"; render(); toast("削除しました"); }; });
-
-  /* 地点追加 */
-  qa(".dIn").forEach(function(i){ i.onchange=function(e){ ui.draft[i.dataset.k]=e.target.value; render(); }; });
-  qa("[data-dcat]").forEach(function(b){ b.onclick=function(){ ui.draft.cat=b.dataset.dcat; render(); }; });
-  qa(".qIn").forEach(function(i){ i.onchange=function(e){
-    ui.draft.segs[Number(i.dataset.i)][i.dataset.k]=e.target.value; render(); }; });
-  qa("[data-fix]").forEach(function(b){ b.onclick=function(){
-    var s=ui.draft.segs[Number(b.dataset.fix)];
-    s.height=b.dataset.h; s.note="採用しなかった値も残しています"; render(); }; });
-  qa("[data-rmseg]").forEach(function(b){ b.onclick=function(){
-    ui.draft.segs.splice(Number(b.dataset.rmseg),1); render(); }; });
-  if($("addSeg")) $("addSeg").onclick=function(){
-    ui.draft.segs.push({label:"",layers:"",steps:"",rise:"",height:""}); render(); };
-  if($("saveSpot")) $("saveSpot").onclick=saveSpot;
-
-  if($("recapSeen")) $("recapSeen").onclick=function(){
-    var k=ui.recapWeek||M.prevWeek(M.currentWeek());
-    S.recaps=S.recaps||{}; S.recaps[k]={seen:true,at:new Date().toISOString()};
-    save(); ui.screen="home"; render(); };
-  if($("repBar")) $("repBar").onchange=function(e){
-    S.settings.repeatBar=e.target.checked; ui.hideRepeat=false; save(); render(); };
-  if($("swv")) showCacheName();
-  if($("hardReload")) $("hardReload").onclick=hardReload;
-  if($("expJ")) $("expJ").onclick=exportJSON;
-  if($("impJ")) $("impJ").onclick=function(){ $("impF").click(); };
-  if($("impF")) $("impF").onchange=function(e){
-    var f=e.target.files&&e.target.files[0]; if(f) importJSON(f); e.target.value=""; };
-}
-
 /* いま実際に使われているキャッシュ名を出す。混在の切り分けに使う。 */
 function showCacheName(){
-  if(!window.caches){ $("swv").textContent="非対応"; return; }
-  caches.keys().then(function(ks){
-    $("swv").textContent=ks.length?ks.join(", "):"なし";
-  }).catch(function(){ $("swv").textContent="不明"; });
+  var el=$("swv"); if(!el) return;
+  if(!window.caches){ el.textContent="非対応"; return; }
+  caches.keys().then(function(ks){ el.textContent=ks.length?ks.join(", "):"なし"; })
+    .catch(function(){ el.textContent="不明"; });
 }
 /* 古いファイルが混ざったときの脱出口。データは消さない。 */
 function hardReload(){
   if(!confirm("保存されたファイルを捨てて、最新を取り直します。\n記録は消えません。続けますか？")) return;
-  var done=function(){ location.reload(true); };
+  var done=function(){ location.reload(); };
   var jobs=[];
   if(window.caches) jobs.push(caches.keys().then(function(ks){
     return Promise.all(ks.map(function(k){ return caches.delete(k); })); }));
   if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)
     jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
       return Promise.all(rs.map(function(r){ return r.unregister(); })); }));
-  Promise.all(jobs).then(done, done);
+  Promise.all(jobs).then(done,done);
+  setTimeout(done,2500);
 }
+
+/* ===== イベント =====
+   クリックは画面全体で1回だけ受ける（イベント委譲）。
+   描画のたびにボタンへ個別に付け直す方式だと、途中で1つエラーが出た時点で
+   それ以降のボタンが全部無反応になるため。 */
+function closestData(el,key){
+  while(el&&el!==document.body){
+    if(el.getAttribute&&el.getAttribute(key)!=null) return el;
+    el=el.parentNode;
+  }
+  return null;
+}
+var ACTIONS={
+  go:function(v){ ui.screen=v; if(v==="newspot") ui.draft=blankDraft();
+    try{window.scrollTo(0,0);}catch(e){} render(); },
+  pick:function(v){ var sp=D.spotOf(S,v); if(!sp) return;
+    ui.spotId=sp.id; ui.sel={}; sp.segs.forEach(function(g){ui.sel[g.id]=true;});
+    ui.reps=1; ui.screen="record"; try{window.scrollTo(0,0);}catch(e){} render(); },
+  spot:function(v){ ui.editSpot=v; ui.screen="spot"; try{window.scrollTo(0,0);}catch(e){} render(); },
+  cat:function(v){ ui.cat=v; render(); },
+  per:function(v){ ui.period=Number(v); render(); },
+  del:function(v){ S.entries=S.entries.filter(function(x){ return String(x.id)!==v; });
+    D.recomputeSummits(S); M.ensure(S); save(); render(); },
+  base:function(v){ S.baseRise=Number(v)/1000; save(); render();
+    toast("基準の蹴上げを "+v+"mm にしました"); },
+  clear:function(v){ delete S.over[v]; save(); render(); toast("設定を消しました"); },
+  hide:function(v){ D.ovW(S,v).hidden=true; save(); ui.screen="spots"; render();
+    toast("一覧から隠しました",null,{label:"取り消す",fn:function(){
+      if(S.over[v]) delete S.over[v].hidden; D.pruneOver(S); save(); render(); }}); },
+  show:function(v){ if(S.over[v]) delete S.over[v].hidden; D.pruneOver(S); save(); render();
+    toast("一覧に戻しました"); },
+  delspot:function(v){
+    if(!confirm("この地点を完全に削除します。計測した値も消えます。\n過去の記録は残ります。続けますか？")) return;
+    S.customSpots=S.customSpots.filter(function(s){ return s.id!==v; });
+    delete S.over[v]; save(); ui.screen="spots"; ui.cat="mall"; render(); toast("削除しました"); },
+  mcat:function(v){ D.setMeta(S,ui.editSpot,"cat",v); save(); render(); toast("保存しました"); },
+  resetmeta:function(v){ D.resetMeta(S,v); D.pruneOver(S); save(); render(); toast("元に戻しました"); },
+  dcat:function(v){ ui.draft.cat=v; render(); },
+  rmseg:function(v){ ui.draft.segs.splice(Number(v),1); render(); },
+  act:function(v,el){ (ACTS[v]||function(){})(el); }
+};
+var ACTS={
+  again:repeatLast,
+  hideRep:function(){ ui.hideRepeat=true; render();
+    toast("バーを隠しました",null,{label:"元に戻す",fn:function(){ ui.hideRepeat=false; render(); }}); },
+  theme:toggleTheme,
+  selAll:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=true;}); render(); } },
+  selFree:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=!g.paid;}); render(); } },
+  selNone:function(){ ui.sel={}; render(); },
+  minus:function(){ ui.reps=Math.max(1,Number(ui.reps)-1); render(); },
+  plus:function(){ ui.reps=Number(ui.reps)+1; render(); },
+  commit:commit,
+  addSeg:function(){ ui.draft.segs.push({label:"",layers:"",steps:"",rise:"",height:""}); render(); },
+  saveSpot:saveSpot,
+  recapSeen:function(){ var k=ui.recapWeek||M.prevWeek(M.currentWeek());
+    S.recaps=S.recaps||{}; S.recaps[k]={seen:true,at:new Date().toISOString()};
+    save(); ui.screen="home"; render(); },
+  expJ:exportJSON,
+  impJ:function(){ var f=$("impF"); if(f) f.click(); },
+  hardReload:hardReload,
+  fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
+    s.height=el.getAttribute("data-h"); render(); }
+};
+var KEYS=["go","pick","spot","cat","per","del","base","clear","hide","show","delspot",
+          "mcat","resetmeta","dcat","rmseg","act"];
+function onTap(ev){
+  for(var i=0;i<KEYS.length;i++){
+    var el=closestData(ev.target,"data-"+KEYS[i]);
+    if(el){ ev.preventDefault();
+      try{ ACTIONS[KEYS[i]](el.getAttribute("data-"+KEYS[i]),el); }
+      catch(e){ showError(e); }
+      return; }
+  }
+}
+var wired=false;
+function wireOnce(){
+  if(wired) return; wired=true;
+  document.addEventListener("click",onTap,false);
+  window.addEventListener("error",function(e){ showError(e.error||e.message); });
+}
+/* 起動時にファイルの欠落・世代ずれを検出して名指しする。
+   ブラウザからのアップロードは一部だけ落ちることがあるため。 */
+var REQUIRED=[
+  ["seed.js",        function(){ return window.SEED && window.SEED.length; }],
+  ["data.migrate.js",function(){ return window.AscentMigrate && AscentMigrate.TARGET>=4; }],
+  ["domain.js",      function(){ return window.D && D.buildEvents && D.mountainTable; }],
+  ["domain.missions.js",function(){ return window.M && M.ensure && M.GENERATOR_VERSION; }],
+  ["view.mountain.js",function(){ return window.Mountain && Mountain.render && Mountain.profile; }]
+];
+function checkModules(){
+  var bad=[];
+  REQUIRED.forEach(function(r){
+    var okk=false; try{ okk=!!r[1](); }catch(e){}
+    if(!okk) bad.push(r[0]);
+  });
+  if(bad.length){
+    var b=$("err"); if(b){
+      b.innerHTML="<b>"+bad.join(" / ")+"</b> が古いか、アップロードされていません。<br>"
+        +"GitHubに上げ直してから、設定 → キャッシュを捨てて読み直す をお試しください。";
+      b.className="show";
+    }
+  }
+  return bad;
+}
+function showError(e){
+  var b=$("err"); if(!b) return;
+  b.textContent="エラー: "+(e&&e.message?e.message:String(e))+"（設定 → キャッシュを捨てて読み直す をお試しください）";
+  b.className="show";
+}
+
+/* 入力欄など、個別に付ける必要があるものだけをここで結ぶ */
+function bind(){
+  try{
+    var pf=$("prof");
+    if(pf&&window.Mountain&&Mountain.flagX)
+      pf.scrollLeft=Math.max(0,Mountain.flagX(D.lifetime(S))-pf.clientWidth*0.45);
+    var dz=$("dayscroll"); if(dz) dz.scrollLeft=dz.scrollWidth;
+  }catch(e){ showError(e); }
+
+  try{
+    qa("[data-seg]").forEach(function(b){ b.onchange=function(){ ui.sel[b.dataset.seg]=b.checked; render(); }; });
+    if($("reps")) $("reps").onchange=function(e){ ui.reps=Math.max(1,Number(e.target.value)||1); render(); };
+    if($("rt")) $("rt").onchange=function(e){ ui.round=e.target.checked; render(); };
+
+    if($("w")) $("w").onchange=function(e){ S.weight=Number(e.target.value)||60; save(); render(); };
+    if($("bRise")) $("bRise").onchange=function(e){ var v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render(); };
+    if($("bFloor")) $("bFloor").onchange=function(e){ var v=num(e.target.value); if(v)S.baseFloorH=v; save(); render(); };
+    if($("thm2")) $("thm2").onchange=toggleTheme;
+    if($("repBar")) $("repBar").onchange=function(e){
+      S.settings.repeatBar=e.target.checked; ui.hideRepeat=false; save(); render(); };
+    if($("swv")) showCacheName();
+
+    qa(".sIn").forEach(function(i){ i.onchange=function(e){
+      var o=D.ovW(S,ui.editSpot), k=i.dataset.k, v=num(e.target.value);
+      if(v==null) delete o[k]; else o[k]=(k==="rise")?v/1000:v;
+      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+    qa(".gIn").forEach(function(i){ i.onchange=function(e){
+      var so=D.segOvW(S,ui.editSpot,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
+      if(v==null) delete so[k]; else so[k]=(k==="rise")?v/1000:v;
+      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+    qa(".mIn").forEach(function(i){ i.onchange=function(e){
+      var k=i.dataset.k, v=e.target.value.trim();
+      D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));
+      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+    qa(".dIn").forEach(function(i){ i.onchange=function(e){ ui.draft[i.dataset.k]=e.target.value; render(); }; });
+    qa(".qIn").forEach(function(i){ i.onchange=function(e){
+      ui.draft.segs[Number(i.dataset.i)][i.dataset.k]=e.target.value; render(); }; });
+    if($("impF")) $("impF").onchange=function(e){
+      var f=e.target.files&&e.target.files[0]; if(f) importJSON(f); e.target.value=""; };
+  }catch(e){ showError(e); }
+}
+
 function toggleTheme(){
   S.settings.theme=(S.settings.theme==="light")?"dark":"light"; save(); render();
 }
@@ -916,5 +960,5 @@ function saveSpot(){
   toast("「"+sp.name+"」を追加しました");
 }
 
-load(); render();
+wireOnce(); load(); render(); checkModules();
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
