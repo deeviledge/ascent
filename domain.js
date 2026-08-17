@@ -2,27 +2,97 @@
 (function (root) {
 "use strict";
 
+/* 到達の刻み。既存6座（harukas/takao/fuji5/fuji/kilimanjaro/everest）は
+   IDも標高も変えずに残し、あいだを埋めている。
+   art はどの山シルエットを使うかの指定（素材は6種）。 */
+/* 到達の刻み。序盤ほど細かく、身近な建物で刻む。
+   旧6座（harukas/takao/fuji5/fuji/kilimanjaro/everest）はIDも標高も変えずに残してある。
+   art はどの山シルエットを使うかの指定（素材は6種）。 */
 var RANKS = [
-  {id:"harukas",    m:300,  name:"あべのハルカス"},
-  {id:"takao",      m:599,  name:"高尾山"},
-  {id:"fuji5",      m:1450, name:"富士山 五合目→山頂"},
-  {id:"fuji",       m:3776, name:"富士山 標高ぜんぶ"},
-  {id:"kilimanjaro",m:5895, name:"キリマンジャロ"},
-  {id:"everest",    m:8848, name:"エベレスト"}
+  {id:"tokyostation", m:45,   name:"東京駅 丸の内駅舎",   art:"harukas",     note:"東京"},
+  {id:"toji",         m:55,   name:"東寺 五重塔",        art:"harukas",     note:"日本一高い木造塔"},
+  {id:"liberty",      m:93,   name:"自由の女神",         art:"harukas",     note:"台座込み・ニューヨーク"},
+  {id:"tsutenkaku",   m:108,  name:"通天閣",            art:"harukas",     note:"大阪"},
+  {id:"kyototower",   m:131,  name:"京都タワー",         art:"harukas",     note:"京都"},
+  {id:"pyramid",      m:139,  name:"クフ王のピラミッド",  art:"harukas",     note:"エジプト"},
+  {id:"sapporotv",    m:147,  name:"さっぽろテレビ塔",    art:"harukas",     note:"札幌"},
+  {id:"umeda",        m:173,  name:"梅田スカイビル",      art:"harukas",     note:"大阪"},
+  {id:"nagoyatv",     m:180,  name:"名古屋テレビ塔",      art:"harukas",     note:"日本初の集約電波塔"},
+  {id:"nakanoshima",  m:200,  name:"中之島フェスティバルタワー", art:"harukas", note:"大阪"},
+  {id:"shibuyasq",    m:229,  name:"渋谷スクランブルスクエア", art:"harukas", note:"渋谷"},
+  {id:"roppongi",     m:238,  name:"六本木ヒルズ 森タワー", art:"harukas",   note:"東京"},
+  {id:"tocho",        m:243,  name:"東京都庁 第一本庁舎", art:"harukas",     note:"新宿"},
+  {id:"midtown",      m:248,  name:"ミッドタウン・タワー", art:"harukas",    note:"東京"},
+  {id:"toranomon",    m:256,  name:"虎ノ門ヒルズ 森タワー", art:"harukas",   note:"東京"},
+  {id:"landmark",     m:296,  name:"横浜ランドマークタワー", art:"harukas",  note:"横浜"},
+  {id:"harukas",      m:300,  name:"あべのハルカス",      art:"harukas",     note:"大阪"},
+  {id:"azabudai",     m:325,  name:"麻布台ヒルズ 森JPタワー", art:"harukas", note:"日本一高いビル"},
+  {id:"tokyotower",   m:333,  name:"東京タワー",         art:"harukas",     note:"東京"},
+  {id:"empire",       m:381,  name:"エンパイア・ステート・ビル", art:"takao", note:"ニューヨーク"},
+  {id:"petronas",     m:452,  name:"ペトロナスツインタワー", art:"takao",    note:"クアラルンプール"},
+  {id:"taipei101",    m:508,  name:"台北101",           art:"takao",       note:"台湾"},
+  {id:"cntower",      m:553,  name:"CNタワー",          art:"takao",       note:"トロント"},
+  {id:"takao",        m:599,  name:"高尾山",            art:"takao",       note:"東京・八王子"},
+  {id:"canton",       m:604,  name:"広州タワー",         art:"takao",       note:"中国"},
+  {id:"shanghai",     m:632,  name:"上海タワー",         art:"takao",       note:"世界2位のビル"},
+  {id:"skytree",      m:634,  name:"東京スカイツリー",    art:"takao",       note:"世界一高い塔"},
+  {id:"burj",         m:828,  name:"ブルジュ・ハリファ",  art:"takao",       note:"世界一高いビル"},
+  {id:"hiei",         m:848,  name:"比叡山",            art:"takao",       note:"京都・滋賀"},
+  {id:"tsukuba",      m:877,  name:"筑波山",            art:"takao",       note:"茨城"},
+  {id:"rokko",        m:931,  name:"六甲山",            art:"takao",       note:"兵庫"},
+  {id:"kongo",        m:1125, name:"金剛山",            art:"fuji5",       note:"大阪最高峰"},
+  {id:"gozaisho",     m:1212, name:"御在所岳",          art:"fuji5",       note:"三重・滋賀"},
+  {id:"ibuki",        m:1377, name:"伊吹山",            art:"fuji5",       note:"滋賀・岐阜"},
+  {id:"amagi",        m:1406, name:"天城山",            art:"fuji5",       note:"静岡"},
+  {id:"fuji5",        m:1450, name:"富士山 五合目→山頂", art:"fuji5",       note:"五合目からの標高差"},
+  {id:"aso",          m:1592, name:"阿蘇山（高岳）",     art:"fuji5",       note:"熊本"},
+  {id:"odaigahara",   m:1695, name:"大台ヶ原山",         art:"fuji5",       note:"奈良・三重"},
+  {id:"daisen",       m:1729, name:"大山",              art:"fuji5",       note:"鳥取"},
+  {id:"zao",          m:1841, name:"蔵王山（熊野岳）",   art:"fuji5",       note:"山形・宮城"},
+  {id:"ishizuchi",    m:1982, name:"石鎚山",            art:"fuji5",       note:"西日本最高峰"},
+  {id:"kumotori",     m:2017, name:"雲取山",            art:"fuji",        note:"東京都最高峰"},
+  {id:"enasan",       m:2191, name:"恵那山",            art:"fuji",        note:"長野・岐阜"},
+  {id:"tateshina",    m:2531, name:"蓼科山",            art:"fuji",        note:"長野"},
+  {id:"hakusan",      m:2702, name:"白山",              art:"fuji",        note:"石川・岐阜"},
+  {id:"akadake",      m:2899, name:"赤岳（八ヶ岳）",     art:"fuji",        note:"長野・山梨"},
+  {id:"kisokoma",     m:2956, name:"木曽駒ヶ岳",         art:"fuji",        note:"中央アルプス最高峰"},
+  {id:"ontake",       m:3067, name:"御嶽山",            art:"fuji",        note:"長野・岐阜"},
+  {id:"yarigatake",   m:3180, name:"槍ヶ岳",            art:"fuji",        note:"北アルプス"},
+  {id:"kitadake",     m:3193, name:"北岳",              art:"fuji",        note:"日本第2位"},
+  {id:"fuji",         m:3776, name:"富士山",            art:"fuji",        note:"日本最高峰"},
+  {id:"yushan",       m:3952, name:"玉山",              art:"kilimanjaro", note:"台湾最高峰"},
+  {id:"kinabalu",     m:4095, name:"キナバル山",         art:"kilimanjaro", note:"ボルネオ"},
+  {id:"matterhorn",   m:4478, name:"マッターホルン",     art:"kilimanjaro", note:"スイス・イタリア"},
+  {id:"montblanc",    m:4808, name:"モンブラン",         art:"kilimanjaro", note:"アルプス最高峰"},
+  {id:"kenya",        m:5199, name:"ケニア山",          art:"kilimanjaro", note:"アフリカ2位"},
+  {id:"elbrus",       m:5642, name:"エルブルス",         art:"kilimanjaro", note:"ヨーロッパ最高峰"},
+  {id:"kilimanjaro",  m:5895, name:"キリマンジャロ",     art:"kilimanjaro", note:"アフリカ最高峰"},
+  {id:"denali",       m:6190, name:"デナリ",            art:"kilimanjaro", note:"北米最高峰"},
+  {id:"aconcagua",    m:6961, name:"アコンカグア",       art:"everest",     note:"南米最高峰"},
+  {id:"muztagh",      m:7546, name:"ムスターグ・アタ",   art:"everest",     note:"中国・パミール"},
+  {id:"shishapangma", m:8027, name:"シシャパンマ",       art:"everest",     note:"8000m峰14座の1つ"},
+  {id:"manaslu",      m:8163, name:"マナスル",          art:"everest",     note:"世界8位"},
+  {id:"lhotse",       m:8516, name:"ローツェ",          art:"everest",     note:"世界4位"},
+  {id:"k2",           m:8611, name:"K2",               art:"everest",     note:"世界2位"},
+  {id:"everest",      m:8848, name:"エベレスト",         art:"everest",     note:"世界最高峰"}
 ];
-var BOUNDS=[0,300,599,1450,3776,5895,8848];
+var BOUNDS=[0].concat(RANKS.map(function(r){return r.m;}));
+var NTIER=RANKS.length;
 var CONF_RANK={"実測":4,"確定":3,"導出":2,"推定":1};
 
 /* 6区間を等分割。序盤でもバーが動くようにするための設計（変更不可）。 */
+/* 全体ゲージは各座を等分割。実距離だと序盤が1pxも動かず離脱するため（設計上の確定事項）。 */
 function pos(t){
-  if(t>=8848) return 1;
-  for(var i=0;i<6;i++){ if(t<BOUNDS[i+1]) return (i+(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i]))/6; }
+  if(t>=RANKS[NTIER-1].m) return 1;
+  for(var i=0;i<NTIER;i++){
+    if(t<BOUNDS[i+1]) return (i+(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i]))/NTIER;
+  }
   return 1;
 }
 function tierOf(t){
   var i=-1;
   for(var k=0;k<RANKS.length;k++){ if(t<RANKS[k].m){ i=k; break; } }
-  if(i===-1) return {idx:-1,tier:RANKS[5],cleared:6,remain:0,done:true,inTier:1};
+  if(i===-1) return {idx:-1,tier:RANKS[NTIER-1],cleared:NTIER,remain:0,done:true,inTier:1};
   return {idx:i,tier:RANKS[i],cleared:i,remain:RANKS[i].m-t,done:false,
           inTier:(t-BOUNDS[i])/(BOUNDS[i+1]-BOUNDS[i])};
 }
@@ -32,7 +102,7 @@ function mountainTable(t){
     var prev=BOUNDS[i];
     var reached=t>=r.m;
     var cur=!reached && t>=prev;
-    return {i:i+1,id:r.id,name:r.name,m:r.m,
+    return {i:i+1,id:r.id,name:r.name,m:r.m,note:r.note,art:r.art,
       reached:reached, current:cur,
       done:Math.min(t,r.m),
       ratio: reached?1:(cur?(t-prev)/(r.m-prev):0),
@@ -378,9 +448,62 @@ function achievements(S){
     ["雨天決行","雨の日に登る",condStats(S).rain>=1],
     ["縦走","1日で同じエリアを2ヶ所",traverses(S).length>=1],
     ["月間認定","ひと月であべのハルカス",monthlyCerts(S).some(function(c){return c.m>=300;})],
+    ["初コンプリート","1ヶ所を完全制覇",overallComplete(S).done>=1],
+    ["5ヶ所コンプリート","5ヶ所を完全制覇",overallComplete(S).done>=5],
+    ["エリア制覇","1エリアを完全制覇",areaComplete(S).some(function(a){return a.total>=2&&a.done===a.total;})],
     ["実測者","自分で測った区間が5件",Object.keys(S.over||{}).reduce(function(a,k){
         var o=S.over[k]||{}; return a+Object.keys(o.segs||{}).length; },0)>=5]
   ].map(function(x){ return {name:x[0],desc:x[1],got:!!x[2]}; });
+}
+
+/* ===== コンプリート =====
+   施設の全区間の合計 × 倍率 を目標とし、どの区間で稼いだかは問わず累計mで判定する。
+   ある区間が閉鎖中でも、別の区間で同じ高さを稼げば達成できる。 */
+var COMPLETE_TIERS=[[400,1],[300,2],[200,3],[100,5],[0,10]];
+function completeMult(baseM){
+  for(var i=0;i<COMPLETE_TIERS.length;i++) if(baseM>=COMPLETE_TIERS[i][0]) return COMPLETE_TIERS[i][1];
+  return 10;
+}
+function spotComplete(S,sp){
+  var base=spotTotal(S,sp);
+  var mult=completeMult(base);
+  var target=base*mult;
+  var got=S.entries.reduce(function(a,e){ return e.spotId===sp.id? a+e.meters : a; },0);
+  return { id:sp.id, name:sp.name, area:sp.area, base:base, mult:mult, target:target, got:got,
+           ratio: target>0? Math.min(1,got/target) : 0,
+           done: target>0 && got>=target,
+           remain: Math.max(0,target-got) };
+}
+function completeAll(S){
+  return allSpots(S).filter(function(sp){ return sp.segs.length; })
+    .map(function(sp){ return spotComplete(S,sp); });
+}
+function areaComplete(S){
+  var m={};
+  completeAll(S).forEach(function(c){
+    var a=(c.area&&c.area!=="—")?c.area:"その他";
+    var x=m[a]=m[a]||{area:a,total:0,done:0,target:0,got:0};
+    x.total++; if(c.done) x.done++;
+    x.target+=c.target; x.got+=Math.min(c.got,c.target);
+  });
+  return Object.keys(m).map(function(k){ var x=m[k];
+    x.ratio=x.target>0?Math.min(1,x.got/x.target):0; return x; })
+    .sort(function(a,b){ return (b.done/b.total)-(a.done/a.total)||b.total-a.total; });
+}
+function overallComplete(S){
+  var all=completeAll(S), tgt=0, got=0, done=0;
+  all.forEach(function(c){ tgt+=c.target; got+=Math.min(c.got,c.target); if(c.done) done++; });
+  return { done:done, total:all.length, target:tgt, got:got,
+           ratio: tgt>0? Math.min(1,got/tgt) : 0 };
+}
+/* 区間ごとの登った回数（参考表示用。判定には使わない） */
+function segVisits(S,spotId){
+  var out={};
+  S.entries.forEach(function(e){
+    if(e.spotId!==spotId) return;
+    (e.segIds||[]).forEach(function(id){ out[id]=(out[id]||0)+(e.reps||1); });
+  });
+  return out;
 }
 
 /* ===== 月間認定 ===== 月ごとの合計が届いた山。累計とは別ゲーム。 */
@@ -487,13 +610,27 @@ function avgMeasure(S,field,days){
 function addMeasure(S,date,weightKg,waistCm){
   S.measurements=S.measurements||[];
   var ex=S.measurements.filter(function(m){ return m.date===date; })[0];
-  if(!ex){ ex={id:Date.now(),date:date,source:"user_input"}; S.measurements.push(ex); }
+  // 1日1件なので、日付そのものをIDにする。Date.now()だと同一ミリ秒で衝突する。
+  if(!ex){ ex={id:"m_"+date,date:date,source:"user_input"}; S.measurements.push(ex); }
+  if(ex.id==null||/^\d+$/.test(String(ex.id))) ex.id="m_"+date;
   if(weightKg!=null) ex.weightKg=Math.round(weightKg*10)/10;
   if(waistCm!=null) ex.waistCm=Math.round(waistCm*10)/10;
   S.measurements.sort(function(a,b){ return a.date<b.date?-1:1; });
   return ex;
 }
 /* 脂肪換算（理論値）の累積。単純なエネルギー換算であり、実際の脂肪の増減ではない。 */
+function removeMeasure(S,id){
+  S.measurements=(S.measurements||[]).filter(function(m){ return String(m.id)!==String(id); });
+}
+function measureRows(S){
+  return (S.measurements||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; })
+    .map(function(m,i,arr){
+      var prev=arr[i+1];
+      return { id:m.id, date:m.date, weightKg:m.weightKg, waistCm:m.waistCm,
+        dW:(prev&&prev.weightKg!=null&&m.weightKg!=null)?Math.round((m.weightKg-prev.weightKg)*10)/10:null,
+        dA:(prev&&prev.waistCm!=null&&m.waistCm!=null)?Math.round((m.waistCm-prev.waistCm)*10)/10:null };
+    });
+}
 function fatCumulative(S,days){
   var from=dayShift(-(days-1)), out=[], sum=0, d=new Date(); d.setDate(d.getDate()-(days-1));
   var byDay={};
@@ -504,6 +641,140 @@ function fatCumulative(S,days){
     d.setDate(d.getDate()+1);
   }
   return out;
+}
+
+/* ===== エネルギー分析 =====
+   同じ集計を 標高m / kcal / 脂肪換算g の3指標で切り替えられるようにする。 */
+var METRICS={ m:{key:"m",label:"標高",unit:"m",dec:1},
+              kcal:{key:"kcal",label:"エネルギー",unit:"kcal",dec:0},
+              g:{key:"g",label:"脂肪換算",unit:"g",dec:0} };
+function valOf(S,e,metric){
+  if(metric==="m") return e.meters;
+  var k=kcalOf(S,e);
+  return metric==="kcal"? k : fatG(k,S);
+}
+function seriesDaily(S,days,metric){
+  var from=dayShift(-(days-1)), map={};
+  S.entries.forEach(function(e){ if(e.date>=from) map[e.date]=(map[e.date]||0)+valOf(S,e,metric); });
+  var out=[], acc=0, d=new Date(); d.setDate(d.getDate()-(days-1));
+  for(var i=0;i<days;i++){
+    var k=ymd(d), v=map[k]||0; acc+=v;
+    out.push({date:k, v:v, cum:acc, dow:new Date(k+"T00:00:00").getDay()});
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function movingAvg(arr,n){
+  var out=[], sum=0;
+  for(var i=0;i<arr.length;i++){
+    sum+=arr[i].v;
+    if(i>=n) sum-=arr[i-n].v;
+    out.push(sum/Math.min(i+1,n));
+  }
+  return out;
+}
+function breakdown(S,days,metric,by){
+  var from=dayShift(-(days-1)), m={};
+  S.entries.forEach(function(e){
+    if(e.date<from) return;
+    var key;
+    if(by==="spot") key=e.name||"—";
+    else if(by==="cat") key={daily:"日常",mall:"商業・駅ビル",station:"駅",boss:"山・タワー"}[e.cat]||"その他";
+    else { var sp=e.spotId?spotOf(S,e.spotId):null; key=(sp&&sp.area&&sp.area!=="—")?sp.area:"その他"; }
+    m[key]=(m[key]||0)+valOf(S,e,metric);
+  });
+  var total=0; Object.keys(m).forEach(function(k){ total+=m[k]; });
+  return { total:total, rows:Object.keys(m).map(function(k){
+      return {name:k, v:m[k], ratio:total>0?m[k]/total:0}; })
+    .sort(function(a,b){ return b.v-a.v; }) };
+}
+var SLOTS=[["早朝",0,7],["午前",7,12],["午後",12,18],["夜",18,24]];
+function slotOf(h){ for(var i=0;i<SLOTS.length;i++) if(h>=SLOTS[i][1]&&h<SLOTS[i][2]) return i; return 3; }
+function dowSlotMatrix(S,days,metric){
+  var from=dayShift(-(days-1));
+  var grid=[0,1,2,3,4,5,6].map(function(){ return [0,0,0,0]; });
+  var used=0, skipped=0, max=0;
+  S.entries.forEach(function(e){
+    if(e.date<from) return;
+    var h=hourOf(e);
+    if(h==null||e.createdAtEstimated){ skipped++; return; }
+    var d=new Date(e.date+"T00:00:00").getDay();
+    grid[d][slotOf(h)]+=valOf(S,e,metric); used++;
+  });
+  grid.forEach(function(r){ r.forEach(function(v){ if(v>max) max=v; }); });
+  return {grid:grid, max:max, used:used, skipped:skipped, slots:SLOTS.map(function(x){return x[0];})};
+}
+function confBreakdown(S,days,metric){
+  var from=dayShift(-(days-1)), m={"実測":0,"確定":0,"導出":0,"推定":0,"不明":0}, total=0;
+  S.entries.forEach(function(e){
+    if(e.date<from) return;
+    var c=(e.confidence&&e.confidence.max)||"不明";
+    if(m[c]==null) c="不明";
+    var v=valOf(S,e,metric); m[c]+=v; total+=v;
+  });
+  return { total:total, rows:["実測","確定","導出","推定","不明"].map(function(k){
+    return {name:k, v:m[k], ratio:total>0?m[k]/total:0}; }).filter(function(r){ return r.v>0; }) };
+}
+var MILESTONES=[50,100,250,500,1000,2000,5000];
+function fatMilestones(S){
+  var total=S.entries.reduce(function(a,e){ return a+kcalOf(S,e); },0);
+  var g=fatG(total,S);
+  var sorted=S.entries.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var acc=0, hit={};
+  sorted.forEach(function(e){
+    acc+=kcalOf(S,e);
+    var gg=fatG(acc,S);
+    MILESTONES.forEach(function(ms){ if(!hit[ms]&&gg>=ms) hit[ms]=e.date; });
+  });
+  return MILESTONES.map(function(ms){
+    return { g:ms, done:!!hit[ms], date:hit[ms]||null,
+             ratio:Math.min(1,g/ms), remain:Math.max(0,ms-g) };
+  });
+}
+
+/* ===== 積み上げ予測 =====
+   実績を単純に延長するだけ。摂取側を知らないので体重の増減は予測しない。 */
+function paceFrom(S,weeks){
+  var from=dayShift(-(weeks*7-1));
+  var m=S.entries.reduce(function(a,e){ return e.date>=from? a+e.meters : a; },0);
+  return m/weeks;
+}
+function bestMonthPace(S){
+  var mo={};
+  S.entries.forEach(function(e){ var k=e.date.slice(0,7); mo[k]=(mo[k]||0)+e.meters; });
+  var vals=Object.keys(mo).map(function(k){return mo[k];});
+  return vals.length? Math.max.apply(null,vals)/(30/7) : 0;
+}
+function project(S,weeklyM,days){
+  var m=weeklyM*(days/7);
+  var w=S.weight||60;
+  var rt=roundRatio(S);
+  var kcal=w*m*0.01*(1+0.3*rt);
+  return { m:m, kcal:kcal, g:fatG(kcal,S) };
+}
+function roundRatio(S){
+  if(!S.entries.length) return 0;
+  var n=S.entries.length, r=S.entries.filter(function(e){return e.round;}).length;
+  return r/n;
+}
+/* 目標(脂肪換算g)に到達するまでの週数 */
+function weeksToFat(S,weeklyM,targetG){
+  var already=fatG(S.entries.reduce(function(a,e){return a+kcalOf(S,e);},0),S);
+  if(already>=targetG) return 0;
+  var perWeek=project(S,weeklyM,7).g;
+  if(perWeek<=0) return null;
+  return (targetG-already)/perWeek;
+}
+/* 山への到達予測 */
+function mountainETA(S,weeklyM){
+  var t=lifetime(S), perDay=weeklyM/7;
+  return RANKS.map(function(r){
+    if(t>=r.m) return {name:r.name, m:r.m, done:true};
+    if(perDay<=0) return {name:r.name, m:r.m, done:false, days:null};
+    var d=Math.ceil((r.m-t)/perDay);
+    var dt=new Date(); dt.setDate(dt.getDate()+d);
+    return {name:r.name, m:r.m, done:false, days:d, date:ymd(dt), remain:r.m-t};
+  });
 }
 
 /* ===== 入力の整合チェック（弾かずに警告して判断を委ねる） ===== */
@@ -543,11 +814,11 @@ function derive(v){
   return o;
 }
 
-root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,lifetime:lifetime,mountainTable:mountainTable,equivalent:equivalent,
+root.D={RANKS:RANKS,BOUNDS:BOUNDS,NTIER:NTIER,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,lifetime:lifetime,mountainTable:mountainTable,equivalent:equivalent,
   allSpots:allSpots,spotOf:spotOf,isHidden:isHidden,setMeta:setMeta,resetMeta:resetMeta,addSeg:addSeg,updateSeg:updateSeg,removeSeg:removeSeg,hideSeg:hideSeg,isSegHidden:isSegHidden,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
   riseFor:riseFor,floorHFor:floorHFor,resolve:resolve,spotTotal:spotTotal,backRise:backRise,
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,fatCumulative:fatCumulative};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
 })(typeof window!=="undefined"?window:globalThis);
