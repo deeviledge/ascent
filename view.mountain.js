@@ -45,7 +45,7 @@ function flagAt(d,p){
 /* tierId, 区間内進捗(0-1), 演出フラグ */
 function render(tierId,p,opts){
   opts=opts||{};
-  var m=M[tierId]||M.harukas, f=flagAt(m.d,p), gid="mg_"+tierId;
+  var m=M[tierId]||M[(opts.art||"")]||M.harukas, f=flagAt(m.d,p), gid="mg_"+tierId;
   var ripple = opts.summit
     ? '<g class="ripple" style="transform-origin:'+f.x+'px '+f.y+'px">'
       + '<ellipse cx="'+f.x+'" cy="'+f.y+'" rx="150" ry="62" fill="none" stroke="var(--orange)" stroke-width="3"/>'
@@ -72,21 +72,24 @@ root.Mountain = { render:render, flagAt:flagAt, list:M };
    y軸は平方根で圧縮している。実比だと序盤が完全に平らになり、何も読めなくなるため。 */
 (function (root) {
 "use strict";
-var R=[{m:300,name:"あべのハルカス"},{m:599,name:"高尾山"},{m:1450,name:"富士山 五合目→山頂"},
-       {m:3776,name:"富士山 標高ぜんぶ"},{m:5895,name:"キリマンジャロ"},{m:8848,name:"エベレスト"}];
-var PX=0.30, PAD=64, H=212, BASE=170, TOP=44;
+function ranks(){
+  return (root.D&&root.D.RANKS)? root.D.RANKS
+    : [{m:300,name:"あべのハルカス"},{m:8848,name:"エベレスト"}];
+}
+var PX=0.30, PAD=64, H=250, BASE=196, TOP=44;
 
 function X(m){ return PAD+m*PX; }
 /* 実比だと序盤が完全に平らになるので、下限を持たせた平方根で圧縮する。 */
-function peakY(m){ return BASE-(0.22+0.78*Math.sqrt(m/8848))*(BASE-TOP); }
+function topM(){ var R=ranks(); return R[R.length-1].m; }
+function peakY(m){ return BASE-(0.22+0.78*Math.sqrt(m/topM()))*(BASE-TOP); }
 
 /* 峰と峰のあいだに前衛峰を置く。一直線だと「ただの坂」に見えて距離感が出ない。 */
 var WOBBLE=[0.34,0.20,0.46,0.26,0.38,0.22,0.44,0.30,0.36,0.24,0.42,0.28,0.40,0.32,0.26];
 function line(){
-  var p=[{x:X(0),y:BASE}], w=0;
+  var R=ranks(), p=[{x:X(0),y:BASE}], w=0;
   for(var i=0;i<R.length;i++){
     var from=(i===0?0:R[i-1].m), to=R[i].m, span=to-from;
-    var n=(i<2?2:4);
+    var n=(span>600?3:(span>200?2:1));
     for(var k=1;k<=n;k++){
       var f=k/(n+1), m=from+span*f;
       var lo=(i===0?BASE:peakY(from)), hi=peakY(to);
@@ -108,20 +111,27 @@ function yAt(p,x){
 }
 function profile(t,fmtM){
   fmtM=fmtM||function(v){return Math.round(v).toLocaleString();};
-  var p=line(), W=X(8848)+PAD, fx=X(Math.min(t,8848)), fy=yAt(p,fx);
+  var R=ranks(), TOPM=topM();
+  var p=line(), W=X(TOPM)+PAD, fx=X(Math.min(t,TOPM)), fy=yAt(p,fx);
   var d="M"+p.map(function(q){return q.x.toFixed(1)+" "+q.y.toFixed(1);}).join(" L");
   var area=d+" L"+W+" "+BASE+" L"+PAD+" "+BASE+" Z";
   var grid="";
-  for(var i=500;i<8848;i+=500){
+  for(var i=500;i<TOPM;i+=500){
     if(i%1000){ grid+='<line x1="'+X(i)+'" y1="'+(BASE-8)+'" x2="'+X(i)+'" y2="'+BASE+'" stroke="var(--hairline)" stroke-width="1"/>'; continue; }
     grid+='<line x1="'+X(i)+'" y1="'+TOP+'" x2="'+X(i)+'" y2="'+BASE+'" stroke="var(--hairline)" stroke-width="1"/>'
        +  '<text x="'+X(i)+'" y="'+(BASE+17)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+(i/1000)+',000m</text>';
   }
+  // 名前が重ならないよう、近い峰は段を上げてずらす
+  var lastX=-999, level=0;
   var peaks=R.map(function(r){
     var x=X(r.m), y=peakY(r.m), done=t>=r.m;
+    if(x-lastX<58){ level=(level+1)%3; } else { level=0; }
+    lastX=x;
+    var ty=y-25-level*30;
     return '<g><circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+(done?"var(--green)":"var(--muted)")+'"/>'
-      + '<text x="'+x+'" y="'+(y-25)+'" fill="'+(done?"var(--green)":"var(--text-2)")+'" font-size="12.5" font-weight="700" text-anchor="middle">'+r.name+'</text>'
-      + '<text x="'+x+'" y="'+(y-11)+'" fill="var(--muted)" font-size="11" text-anchor="middle">'+r.m.toLocaleString()+' m'+(done?" 登頂":"")+'</text></g>';
+      + (level?'<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>':'')
+      + '<text x="'+x+'" y="'+ty+'" fill="'+(done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+r.name+'</text>'
+      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+r.m.toLocaleString()+' m'+(done?" 登頂":"")+'</text></g>';
   }).join("");
   return '<svg class="prof" width="'+W+'" height="'+(H+22)+'" viewBox="0 0 '+W+' '+(H+22)+'">'
     + '<defs><clipPath id="pdone"><rect x="0" y="0" width="'+fx+'" height="'+H+'"/></clipPath>'
@@ -143,7 +153,7 @@ function profile(t,fmtM){
     + '<text x="'+fx+'" y="'+(BASE+34)+'" fill="var(--orange)" font-size="11.5" font-weight="700" text-anchor="middle">現在地 '+fmtM(t)+' m</text>'
     + '</svg>';
 }
-function flagX(t){ return X(Math.min(t,8848)); }
+function flagX(t){ return X(Math.min(t,topM())); }
 root.Mountain.profile=profile;
 root.Mountain.flagX=flagX;
 })(typeof window!=="undefined"?window:globalThis);

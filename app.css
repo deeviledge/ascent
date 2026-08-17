@@ -409,3 +409,50 @@ button.ms{display:flex;width:100%;text-align:left;}
 .mdet .cat .j{letter-spacing:0;color:var(--muted);margin-left:5px;}
 .mdet .ttl{font-size:var(--f-xl);font-weight:700;margin:8px 0;line-height:1.4;}
 .mdet .dsc{font-size:var(--f-sm);color:var(--text-2);line-height:1.8;}
+
+/* ---- コンプリート ---- */
+.cmp{border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);
+  padding:var(--s3);margin-bottom:var(--s2);text-align:left;width:100%;background:var(--surface-2);}
+.cmp.done{border-color:var(--green);}
+.cmp .hd2{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);margin-bottom:7px;}
+.cmp .nm{font-size:var(--f-sm);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cmp .pc{font-size:var(--f-md);font-weight:700;color:var(--orange);flex:0 0 auto;}
+.cmp.done .pc{color:var(--green);}
+.cmp .pb i{background:var(--orange);}
+.cmp.done .pb i{background:var(--green);}
+.cmp .sb{display:block;font-size:var(--f-2xs);color:var(--muted);margin-top:6px;}
+.cmp .sb b{color:var(--green);}
+.cmp .mul{border:1px solid var(--hairline-2);border-radius:2px;padding:1px 5px;}
+.cd .cbar{display:block;height:3px;border-radius:2px;background:var(--ink-2);overflow:hidden;margin-top:3px;}
+.cd .cbar i{display:block;height:100%;background:var(--orange);}
+.cd .ft.ok{color:var(--green);font-weight:700;}
+
+/* ---- エネルギー分析 ---- */
+.mtx,.fcast{display:grid;gap:3px;}
+.mtx .hd3,.mtx .rw{display:grid;grid-template-columns:26px repeat(4,1fr);gap:3px;align-items:center;}
+.fcast .hd3,.fcast .rw{display:grid;grid-template-columns:72px repeat(4,1fr);gap:4px;align-items:center;}
+.mtx .hd3 span,.fcast .hd3 span{font-size:9.5px;color:var(--muted);text-align:center;}
+.mtx .d,.fcast .d{font-size:var(--f-2xs);color:var(--muted);}
+.mtx .cl{display:block;height:26px;border-radius:3px;}
+.fcast .v{font-size:var(--f-2xs);text-align:center;font-weight:700;
+  font-family:var(--font-num);white-space:nowrap;}
+.fcast .rw{padding:6px 0;border-bottom:var(--hair) solid var(--hairline);}
+.fcast .rw:last-child{border-bottom:none;}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:var(--s3);background:var(--ink-2);}
+.stack i{display:block;height:100%;}
+.bl.hi .nm,.bl.hi .ct{color:var(--orange);font-weight:700;}
+.mini button.on{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700;}
+input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--orange);height:28px;}
+
+/* ---- 32座のゲージ ---- */
+.ladder2{margin-top:var(--s3);}
+.ladder2 .all{position:relative;height:8px;border-radius:4px;background:var(--ink-2);overflow:visible;}
+.ladder2 .all i{display:block;height:100%;border-radius:4px;background:var(--orange);
+  transition:width var(--t-slow) var(--ease);}
+.ladder2 .all b{position:absolute;top:-2px;width:2px;height:12px;background:var(--hairline-2);
+  border-radius:1px;transform:translateX(-1px);}
+.ladder2 .all b.on{background:var(--green);}
+.mrow .nt{font-size:9.5px;color:var(--muted);font-weight:400;margin-left:4px;}
+.hero .sub small{display:block;font-size:var(--f-2xs);opacity:.7;margin-top:2px;}
+#fx .fxin.sm .ttl{color:var(--green);letter-spacing:.34em;}
+#fx .fxin.sm .cat{color:var(--muted);letter-spacing:.06em;font-weight:600;}
