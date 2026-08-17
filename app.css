@@ -324,3 +324,17 @@ svg.prof{display:block;}
   #fx .ttl,#fx .cat,#fx .nm,#fx .more,#fx .alt{animation:none !important;} }
 .ach div.lapsed{opacity:.72;border-color:var(--hairline-2);}
 .ach div.lapsed b{color:var(--text-2);}
+
+/* ---- 「直前と同じ」を閉じる ---- */
+.repeat{display:flex;align-items:center;gap:6px;}
+.repeat button#again{flex:1;min-width:0;}
+.repeat .rx{flex:0 0 auto;width:38px;height:38px;border-radius:var(--r-md);
+  background:var(--surface);border:var(--hair) solid var(--hairline-2);
+  color:var(--text-2);font-size:19px;line-height:1;box-shadow:var(--shadow);}
+
+/* ---- バージョン ---- */
+.vrow{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);
+  padding:7px 0;border-bottom:var(--hair) solid var(--hairline);font-size:var(--f-sm);}
+.vrow:last-of-type{border-bottom:none;}
+.vrow span{color:var(--muted);font-size:var(--f-xs);}
+.vrow b.okk{color:var(--green);} .vrow b.ng{color:var(--danger);}

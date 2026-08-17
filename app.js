@@ -1,5 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
+var BUILD="2026-08-17.1";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -100,10 +101,12 @@ function tabs(){
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
 }
 function repeatBar(){
-  var e=S.entries[0]; if(!e) return "";
+  var e=S.entries[0];
+  if(!e || S.settings.repeatBar===false || ui.hideRepeat) return "";
   return '<div class="repeat"><button id="again">'+icon("repeat")
     +'<span class="t"><b>直前と同じ</b><span>'+esc(e.name)+' · '+fmt(e.unitM)+'m × '+e.reps+'</span></span>'
-    +'<span class="v num">'+fmt(e.meters)+'m</span></button></div>';
+    +'<span class="v num">'+fmt(e.meters)+'m</span></button>'
+    +'<button id="hideRep" class="rx" aria-label="このバーを隠す">×</button></div>';
 }
 
 /* ===== S1 ホーム ===== */
@@ -589,7 +592,25 @@ function vSettings(){
     + '<div class="card"><h3>表示</h3>'
     + '<div class="fr"><label>屋外モード（明るい場所向け）</label>'
     + '<input type="checkbox" id="thm2" '+(S.settings.theme==="light"?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
-    + '<div class="note">ヘッダーのアイコンからも切り替えられます。</div></div>'
+    + '<div class="note">ヘッダーのアイコンからも切り替えられます。</div>'
+    + '<div class="fr"><label>「直前と同じ」バーを表示</label>'
+    + '<input type="checkbox" id="repBar" '+(S.settings.repeatBar===false?"":"checked")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
+    + '<div class="note">オフにすると、ホームと探索の下に出るバーが消えます。'
+    + 'バーの × を押した場合は、次に開いたときにまた出ます。</div></div>'
+
+    + '<div class="card"><h3>バージョン</h3>'
+    + '<div class="vrow"><span>ビルド</span><b class="num">'+BUILD+'</b></div>'
+    + '<div class="vrow"><span>データ形式</span><b class="num">v'+(S.schemaVersion||"?")+'</b></div>'
+    + '<div class="vrow"><span>キャッシュ</span><b class="num" id="swv">確認中…</b></div>'
+    + ['地点マスタ:'+(window.SEED?"OK":"未読込"),
+       'ミッション:'+(window.M?"OK":"未読込"),
+       '断面図:'+(window.Mountain&&window.Mountain.profile?"OK":"未読込"),
+       '移行:'+(window.AscentMigrate?"OK":"未読込"),
+       'イベント:'+(D.buildEvents?"OK":"未読込")]
+       .map(function(x){ var ng=x.indexOf("未読込")>=0;
+         return '<div class="vrow"><span>'+x.split(":")[0]+'</span><b class="'+(ng?"ng":"okk")+'">'+x.split(":")[1]+'</b></div>'; }).join("")
+    + '<div class="note">「未読込」があると、そのファイルが古いか届いていません。</div>'
+    + '<button class="ghost" id="hardReload">キャッシュを捨てて読み直す</button></div>'
 
     + '<div class="card"><h3>バックアップ</h3>'
     + '<div class="note">記録はこの端末の中にしかありません。ブラウザのデータを消すと戻せないので、ときどき書き出してファイルを残してください。現在 '+S.entries.length+'件。</div>'
@@ -755,6 +776,9 @@ function bind(){
   if($("thm")) $("thm").onclick=toggleTheme;
   if($("thm2")) $("thm2").onchange=toggleTheme;
   if($("again")) $("again").onclick=repeatLast;
+  if($("hideRep")) $("hideRep").onclick=function(){
+    ui.hideRepeat=true; render();
+    toast("バーを隠しました",null,{label:"元に戻す",fn:function(){ ui.hideRepeat=false; render(); }}); };
 
   qa("[data-pick]").forEach(function(b){ b.onclick=function(){
     var sp=D.spotOf(S,b.dataset.pick); if(!sp) return;
@@ -834,12 +858,35 @@ function bind(){
     var k=ui.recapWeek||M.prevWeek(M.currentWeek());
     S.recaps=S.recaps||{}; S.recaps[k]={seen:true,at:new Date().toISOString()};
     save(); ui.screen="home"; render(); };
+  if($("repBar")) $("repBar").onchange=function(e){
+    S.settings.repeatBar=e.target.checked; ui.hideRepeat=false; save(); render(); };
+  if($("swv")) showCacheName();
+  if($("hardReload")) $("hardReload").onclick=hardReload;
   if($("expJ")) $("expJ").onclick=exportJSON;
   if($("impJ")) $("impJ").onclick=function(){ $("impF").click(); };
   if($("impF")) $("impF").onchange=function(e){
     var f=e.target.files&&e.target.files[0]; if(f) importJSON(f); e.target.value=""; };
 }
 
+/* いま実際に使われているキャッシュ名を出す。混在の切り分けに使う。 */
+function showCacheName(){
+  if(!window.caches){ $("swv").textContent="非対応"; return; }
+  caches.keys().then(function(ks){
+    $("swv").textContent=ks.length?ks.join(", "):"なし";
+  }).catch(function(){ $("swv").textContent="不明"; });
+}
+/* 古いファイルが混ざったときの脱出口。データは消さない。 */
+function hardReload(){
+  if(!confirm("保存されたファイルを捨てて、最新を取り直します。\n記録は消えません。続けますか？")) return;
+  var done=function(){ location.reload(true); };
+  var jobs=[];
+  if(window.caches) jobs.push(caches.keys().then(function(ks){
+    return Promise.all(ks.map(function(k){ return caches.delete(k); })); }));
+  if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)
+    jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+      return Promise.all(rs.map(function(r){ return r.unregister(); })); }));
+  Promise.all(jobs).then(done, done);
+}
 function toggleTheme(){
   S.settings.theme=(S.settings.theme==="light")?"dark":"light"; save(); render();
 }
