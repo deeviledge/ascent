@@ -92,7 +92,7 @@ function pruneOver(S){
       if(!Object.keys(o.segs[gid]||{}).length) delete o.segs[gid]; });
     var hasSeg=o.segs&&Object.keys(o.segs).length;
     var hasMeta=o.meta&&Object.keys(o.meta).length;
-    if(!o.rise&&!o.floorH&&!hasSeg&&!hasMeta&&!o.hidden) delete S.over[sid];
+    if(!o.rise&&!o.floorH&&!hasSeg&&!hasMeta&&!o.hidden&&!o.stairs) delete S.over[sid];
   });
 }
 
@@ -210,7 +210,7 @@ function weekday(S){ var a=[0,0,0,0,0,0,0];
   S.entries.forEach(function(e){ a[new Date(e.date+"T00:00:00").getDay()]+=e.meters; }); return a; }
 function exploration(S){
   var spots=allSpots(S), visited=new Set(S.entries.map(function(e){return e.spotId;}));
-  var un=spots.filter(function(s){return !visited.has(s.id);})
+  var un=spots.filter(function(s){return !visited.has(s.id) && stairsOf(S,s.id)!=="no";})
     .sort(function(a,b){ return (a.min==null?999:a.min)-(b.min==null?999:b.min); });
   return {done:spots.length-un.length,total:spots.length,next:un.slice(0,3),visited:visited};
 }
@@ -318,6 +318,7 @@ function achievements(S){
   var cats=new Set(S.entries.map(function(e){return e.cat;}));
   var seedIds=new Set((root.SEED||[]).map(function(s){return s.id;}));
   var seedDone=Array.from(ex.visited).filter(function(id){return seedIds.has(id);}).length;
+  var _c=condStats(S);
   return [
     ["初登頂","はじめての記録",S.entries.length>=1],
     ["7日連続","7日続けて登る",st.best>=7],
@@ -332,8 +333,138 @@ function achievements(S){
     ["5地点","5ヶ所を踏破",seedDone>=5],
     ["15地点","15ヶ所を踏破",seedDone>=15],
     ["全地点","34ヶ所すべて",seedDone>=seedIds.size],
-    ["全カテゴリ","4種すべての場所",cats.size>=4]
+    ["全カテゴリ","4種すべての場所",cats.size>=4],
+    ["早朝の登攀","7時前に登る",condStats(S).early>=1],
+    ["夜の稜線","21時以降に登る",condStats(S).night>=1],
+    ["雨天決行","雨の日に登る",condStats(S).rain>=1],
+    ["縦走","1日で同じエリアを2ヶ所",traverses(S).length>=1],
+    ["月間認定","ひと月であべのハルカス",monthlyCerts(S).some(function(c){return c.m>=300;})],
+    ["実測者","自分で測った区間が5件",Object.keys(S.over||{}).reduce(function(a,k){
+        var o=S.over[k]||{}; return a+Object.keys(o.segs||{}).length; },0)>=5]
   ].map(function(x){ return {name:x[0],desc:x[1],got:!!x[2]}; });
+}
+
+/* ===== 月間認定 ===== 月ごとの合計が届いた山。累計とは別ゲーム。 */
+function monthKey(d){ return d.slice(0,7); }
+function monthlyCerts(S){
+  var m={};
+  S.entries.forEach(function(e){ var k=monthKey(e.date); m[k]=(m[k]||0)+e.meters; });
+  return Object.keys(m).sort().reverse().map(function(k){
+    var total=m[k], hit=null;
+    for(var i=RANKS.length-1;i>=0;i--){ if(total>=RANKS[i].m){ hit=RANKS[i]; break; } }
+    var next=RANKS.filter(function(r){ return r.m>total; })[0]||null;
+    return {month:k, m:total, mountain:hit, next:next,
+            remain:next?next.m-total:0, ratio:next?Math.min(1,total/next.m):1};
+  });
+}
+/* ===== ゴースト対決（先月の自分） ===== */
+function ghost(S){
+  var now=new Date(), cur=ymd(now).slice(0,7);
+  var pv=new Date(now.getFullYear(),now.getMonth()-1,1), prev=ymd(pv).slice(0,7);
+  function series(mk,days){
+    var a=[],sum=0;
+    for(var d=1;d<=days;d++){
+      var key=mk+"-"+p2(d);
+      S.entries.forEach(function(e){ if(e.date===key) sum+=e.meters; });
+      a.push(sum);
+    }
+    return a;
+  }
+  var dCur=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  var dPrev=new Date(pv.getFullYear(),pv.getMonth()+1,0).getDate();
+  var c=series(cur,dCur), p=series(prev,dPrev), day=now.getDate();
+  return {cur:c, prev:p, day:day, curM:c[day-1]||0,
+          prevM:p[Math.min(day,dPrev)-1]||0,
+          lead:(c[day-1]||0)-(p[Math.min(day,dPrev)-1]||0),
+          curMonth:cur, prevMonth:prev};
+}
+/* ===== 縦走（1日で同じエリアの複数地点） ===== */
+function traverses(S){
+  var byDay={};
+  S.entries.forEach(function(e){ if(!e.spotId) return;
+    (byDay[e.date]=byDay[e.date]||{})[e.spotId]=1; });
+  var out=[];
+  Object.keys(byDay).sort().reverse().forEach(function(d){
+    var byArea={};
+    Object.keys(byDay[d]).forEach(function(id){
+      var sp=spotOf(S,id); if(!sp||!sp.area||sp.area==="—") return;
+      (byArea[sp.area]=byArea[sp.area]||[]).push(sp.name);
+    });
+    Object.keys(byArea).forEach(function(a){
+      if(byArea[a].length>=2) out.push({date:d,area:a,spots:byArea[a],n:byArea[a].length});
+    });
+  });
+  return out;
+}
+/* ===== 時間帯・天候 ===== */
+function hourOf(e){
+  if(!e.createdAt) return null;
+  var h=new Date(e.createdAt).getHours();
+  return isNaN(h)?null:h;
+}
+function condStats(S){
+  var early=0,night=0,rain=0;
+  S.entries.forEach(function(e){
+    var h=hourOf(e);
+    if(h!=null&&h<7) early++;
+    if(h!=null&&h>=21) night++;
+    if(e.cond&&e.cond.rain) rain++;
+  });
+  return {early:early,night:night,rain:rain};
+}
+/* ===== 地点カード ===== */
+function spotStats(S,spotId){
+  var list=S.entries.filter(function(e){ return e.spotId===spotId; });
+  if(!list.length) return {visits:0,first:null,last:null,total:0,best:0};
+  var ds=list.map(function(e){return e.date;}).sort();
+  return { visits:list.length, first:ds[0], last:ds[ds.length-1],
+           total:list.reduce(function(a,e){return a+e.meters;},0),
+           best:list.reduce(function(a,e){return Math.max(a,e.meters);},0) };
+}
+function spotConfidence(S,sp){
+  var best=null;
+  sp.segs.forEach(function(g){ var c=resolve(S,sp,g).conf;
+    if(best===null||CONF_RANK[c]<CONF_RANK[best]) best=c; });   // 最も弱い区間で代表する
+  return best||"推定";
+}
+/* ===== 階段の有無 ===== */
+function stairsOf(S,id){ return (S.over[id]||{}).stairs||"unknown"; }
+function setStairs(S,id,v){
+  var o=ovW(S,id);
+  if(!v||v==="unknown") delete o.stairs; else o.stairs=v;
+}
+
+/* ===== 身体データ ===== */
+function measures(S,field){
+  return (S.measurements||[]).filter(function(m){ return m[field]!=null; })
+    .sort(function(a,b){ return a.date<b.date?-1:1; });
+}
+function latestMeasure(S,field){ var a=measures(S,field); return a.length?a[a.length-1]:null; }
+function avgMeasure(S,field,days){
+  var from=dayShift(-(days-1)), a=measures(S,field).filter(function(m){ return m.date>=from; });
+  if(!a.length) return null;
+  return a.reduce(function(x,m){return x+m[field];},0)/a.length;
+}
+function addMeasure(S,date,weightKg,waistCm){
+  S.measurements=S.measurements||[];
+  var ex=S.measurements.filter(function(m){ return m.date===date; })[0];
+  if(!ex){ ex={id:Date.now(),date:date,source:"user_input"}; S.measurements.push(ex); }
+  if(weightKg!=null) ex.weightKg=Math.round(weightKg*10)/10;
+  if(waistCm!=null) ex.waistCm=Math.round(waistCm*10)/10;
+  S.measurements.sort(function(a,b){ return a.date<b.date?-1:1; });
+  return ex;
+}
+/* 脂肪換算（理論値）の累積。単純なエネルギー換算であり、実際の脂肪の増減ではない。 */
+function fatCumulative(S,days){
+  var from=dayShift(-(days-1)), out=[], sum=0, d=new Date(); d.setDate(d.getDate()-(days-1));
+  var byDay={};
+  S.entries.forEach(function(e){ if(e.date>=from) byDay[e.date]=(byDay[e.date]||0)+kcalOf(S,e); });
+  for(var i=0;i<days;i++){
+    var k=ymd(d); sum+=byDay[k]||0;
+    out.push({date:k, kcal:sum, g:fatG(sum,S)});
+    d.setDate(d.getDate()+1);
+  }
+  return out;
 }
 
 /* ===== 入力の整合チェック（弾かずに警告して判断を委ねる） ===== */
@@ -379,5 +510,5 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,life
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,fatCumulative:fatCumulative};
 })(typeof window!=="undefined"?window:globalThis);

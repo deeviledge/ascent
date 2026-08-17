@@ -343,3 +343,55 @@ svg.prof{display:block;}
 #err{display:none;}
 #err.show{display:block;margin:var(--s3) 0;padding:11px 13px;border-radius:var(--r-sm);
   border:1px solid var(--danger);color:var(--danger);font-size:var(--f-xs);line-height:1.7;}
+
+/* ---- 初回 ---- */
+.steps{display:grid;gap:var(--s3);}
+.steps>div{display:flex;align-items:baseline;gap:var(--s3);}
+.steps b{flex:0 0 22px;height:22px;border-radius:50%;border:1px solid var(--orange);
+  color:var(--orange);font-size:var(--f-2xs);display:grid;place-items:center;font-weight:700;}
+.steps span{font-size:var(--f-sm);line-height:1.6;}
+
+/* ---- Body Impact ---- */
+.chain{display:grid;gap:2px;}
+.chain>div{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);padding:6px 0;}
+.chain .k{font-size:var(--f-2xs);color:var(--muted);}
+.chain .v{font-size:var(--f-xl);font-weight:700;}
+.chain .hi .v{font-size:var(--f-hero);}
+.chain .v i{font-style:normal;font-size:var(--f-sm);color:var(--muted);margin-left:3px;}
+.chain .v.amb{color:var(--amber);}
+.chain .arw{justify-content:center;color:var(--muted);font-size:var(--f-sm);padding:0;}
+svg.spark{display:block;margin:var(--s3) 0;}
+
+/* ---- 都市攻略マップ ---- */
+.mapgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);}
+.mp{text-align:left;background:var(--surface-2);border:var(--hair) solid var(--hairline);
+  border-radius:var(--r-sm);padding:var(--s3);display:grid;gap:3px;position:relative;opacity:.62;}
+.mp.got{opacity:1;border-color:var(--green);}
+.mp .dot{position:absolute;right:9px;top:9px;width:7px;height:7px;border-radius:50%;
+  background:var(--hairline-2);}
+.mp.got .dot{background:var(--green);}
+.mp .n{font-size:var(--f-xs);font-weight:600;line-height:1.35;padding-right:12px;}
+.mp .h{font-size:var(--f-md);font-weight:700;}
+.mp .s{font-size:9.5px;color:var(--muted);}
+
+/* ---- 地点カード ---- */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);}
+.cd{text-align:left;border:1px solid var(--hairline);border-radius:var(--r-md);
+  padding:var(--s3);display:grid;gap:4px;background:var(--surface);opacity:.6;position:relative;
+  border-left-width:3px;}
+.cd.got{opacity:1;}
+.cd .rank{font-size:8.5px;letter-spacing:.12em;font-weight:700;}
+.cd .nm{font-size:var(--f-xs);font-weight:700;line-height:1.35;}
+.cd .ar{font-size:9.5px;color:var(--muted);}
+.cd .hh{font-size:var(--f-lg);font-weight:700;}
+.cd .hh i{font-style:normal;font-size:var(--f-2xs);color:var(--muted);margin-left:2px;}
+.cd .ft{font-size:9px;color:var(--muted);}
+.cd.c-meas{border-color:var(--conf-measured);} .cd.c-meas .rank{color:var(--conf-measured);}
+.cd.c-conf{border-color:var(--conf-confirmed);} .cd.c-conf .rank{color:var(--conf-confirmed);}
+.cd.c-der{border-color:var(--conf-derived);} .cd.c-der .rank{color:var(--conf-derived);}
+.cd.c-est{border-color:var(--conf-estimated);} .cd.c-est .rank{color:var(--conf-estimated);}
+
+/* ---- 日付入力 ---- */
+input[type=date]{width:150px;padding:9px 10px;border:var(--hair) solid var(--hairline);
+  border-radius:var(--r-sm);background:var(--ink-2);font-size:var(--f-sm);
+  font-family:var(--font-num);color:var(--text);}
