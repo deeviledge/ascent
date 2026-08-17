@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.14";
+var BUILD="2026-08-17.15";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -879,13 +879,18 @@ function vForecast(){
 /* ===== コンプリート =====
    施設の全区間 × 倍率 が目標。どの区間で稼いだかは問わない。 */
 function compBar(c){
+  /* got を target で頭打ちにしていたため、達成後は実際に何m登ったのかが読めなかった。
+     超過ぶんも含めて実測値をそのまま出す。 */
+  var pct=Math.round(c.ratio*100);
   return '<div class="cmp'+(c.done?" done":"")+'" data-spot="'+c.id+'">'
-    + '<div class="hd2"><span class="nm">'+esc(c.name)+'</span>'
-    + '<span class="pc num">'+Math.round(c.ratio*100)+'%</span></div>'
-    + '<div class="pb"><i style="width:'+Math.round(c.ratio*100)+'%"></i></div>'
-    + '<div class="sb num">'+fmt(Math.min(c.got,c.target))+' / '+fmt(c.target)+' m'
+    + '<div class="hd2"><span class="nm">'+(c.done?'<span class="ck">✓</span>':'')+esc(c.name)+'</span>'
+    + '<span class="pc num">'+pct+'%</span></div>'
+    + '<div class="pb"><i style="width:'+pct+'%"></i></div>'
+    + '<div class="sb num">'+fmt(c.got)+' / '+fmt(c.target)+' m'
     + '　<span class="mul">'+fmt(c.base)+'m ×'+c.mult+'</span>'
-    + (c.done?'　<b>コンプリート</b>':'　あと '+fmt(c.remain)+'m')+'</div></div>';
+    + (c.done?'　<b>コンプリート</b>'
+              +(c.got>c.target?'　<span class="ov">+'+fmt(c.got-c.target)+'m</span>':'')
+             :'　あと '+fmt(c.remain)+'m')+'</div></div>';
 }
 function vComplete(){
   var ov=D.overallComplete(S), ar=D.areaComplete(S);
@@ -951,16 +956,21 @@ function vCards(){
   return '<div class="note">地点ごとの1枚。現地で測って確度が上がると、カードが格上げされます。</div>'
     + '<div class="cards">'+list.map(function(sp){
         var got=visited.has(sp.id), st=D.spotStats(S,sp.id), cf=D.spotConfidence(S,sp);
-        return '<button class="cd '+(got?"got":"")+' '+CONFCLS[cf]+'" data-spot="'+sp.id+'">'
+        var cc=D.spotComplete(S,sp);
+        return '<button class="cd '+(got?"got":"")+(cc.done?" cmpl":"")+' '+CONFCLS[cf]+'" data-spot="'+sp.id+'">'
+          + (cc.done?'<span class="cmpb">✓</span>':'')
           + '<span class="rank">'+cf+'</span>'
           + '<span class="nm">'+esc(sp.name)+'</span>'
           + '<span class="ar">'+area(sp)+'</span>'
           + '<span class="hh num">'+fmt(D.spotTotal(S,sp))+'<i>m</i></span>'
           + '<span class="ft">'+(got?("初登頂 "+st.first.slice(5).replace("-","/")+" ・ "+st.visits+"回")
                                     :"未踏")+'</span>'
-          + (function(){ var c=D.spotComplete(S,sp);
-              return c.target? '<span class="cbar"><i style="width:'+Math.round(c.ratio*100)+'%"></i></span>'
-                + '<span class="ft'+(c.done?" ok":"")+'">'+(c.done?"コンプリート":"コンプリート "+Math.round(c.ratio*100)+"%")+'</span>':''; })()
+          /* 達成すると「コンプリート」だけになり、%も実際に登ったmも読めなかった。
+             どちらの状態でも %と実測mを必ず出す。 */
+          + (function(){ var c=cc, pct=Math.round(c.ratio*100);
+              return c.target? '<span class="cbar"><i style="width:'+pct+'%"></i></span>'
+                + '<span class="ft'+(c.done?" ok":"")+'">コンプリート '+pct+'%</span>'
+                + '<span class="ft num">'+fmt(c.got)+' / '+fmt(c.target)+' m</span>':''; })()
           + '</button>'; }).join("")+'</div>';
 }
 
