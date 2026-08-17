@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.15";
+var BUILD="2026-08-17.16";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -1191,15 +1191,20 @@ function vSpotDetail(){
     + (sp.totalM?' · 公表 '+sp.totalM+'m':'')+'</div>'
     + (sp.totalSteps?'<div class="note">全区間の実測段数 '+sp.totalSteps+'段（公表）。現在の基準蹴上げ '
       +Math.round(S.baseRise*1000)+'mm なら全体 '+fmt(sp.totalSteps*S.baseRise)+'m。</div>':'')
+    /* コンプリート画面と同じ表示。以前はここだけ markup を複製していたため
+       got の頭打ちが残っていた。実測値をそのまま出す。 */
     + (function(){ var c=D.spotComplete(S,sp);
         if(!c.target) return '';
+        var pct=Math.round(c.ratio*100);
         return '<div class="cmp'+(c.done?" done":"")+'" style="margin:var(--s3) 0 0">'
-          + '<div class="hd2"><span class="nm">コンプリート</span>'
-          + '<span class="pc num">'+Math.round(c.ratio*100)+'%</span></div>'
-          + '<div class="pb"><i style="width:'+Math.round(c.ratio*100)+'%"></i></div>'
-          + '<div class="sb num">'+fmt(Math.min(c.got,c.target))+' / '+fmt(c.target)+' m'
+          + '<div class="hd2"><span class="nm">'+(c.done?'<span class="ck">✓</span>':'')+'コンプリート</span>'
+          + '<span class="pc num">'+pct+'%</span></div>'
+          + '<div class="pb"><i style="width:'+pct+'%"></i></div>'
+          + '<div class="sb num">'+fmt(c.got)+' / '+fmt(c.target)+' m'
           + '　<span class="mul">'+fmt(c.base)+'m ×'+c.mult+'</span>'
-          + (c.done?'　<b>達成</b>':'　あと '+fmt(c.remain)+'m')+'</div></div>'; })()
+          + (c.done?'　<b>達成</b>'
+                    +(c.got>c.target?'　<span class="ov">+'+fmt(c.got-c.target)+'m</span>':'')
+                   :'　あと '+fmt(c.remain)+'m')+'</div></div>'; })()
     + (function(){ var st=D.spotStats(S,sp.id);
         return st.visits? '<div class="vrow"><span>初登頂</span><b class="num">'+st.first.replace(/-/g,"/")+'</b></div>'
           + '<div class="vrow"><span>登頂回数</span><b class="num">'+st.visits+' 回</b></div>'
