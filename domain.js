@@ -54,8 +54,13 @@ function lifetime(S){ return S.entries.reduce(function(a,e){return a+e.meters;},
    over[id].meta に持ち、読み出すときに重ねる。非表示も同じ場所に持つ。 */
 function decorate(S,sp){
   var o=S.over[sp.id]||{}, m=o.meta;
-  if(!m&&!o.hidden) return sp;
+  var extra=o.extraSegs&&o.extraSegs.length, hidden=o.segHide&&Object.keys(o.segHide).length;
+  if(!m&&!o.hidden&&!extra&&!hidden) return sp;
   var out={}; for(var k in sp) out[k]=sp[k];
+  if(extra||hidden){
+    out.segs=(sp.segs||[]).filter(function(g){ return !(o.segHide&&o.segHide[g.id]); })
+      .concat((o.extraSegs||[]).map(function(g){ var c={}; for(var k2 in g) c[k2]=g[k2]; c.added=true; return c; }));
+  }
   if(m){
     if(m.name) out.name=m.name;
     if(m.area) out.area=m.area;
@@ -80,6 +85,39 @@ function setMeta(S,id,k,v){
 }
 function resetMeta(S,id){ var o=S.over[id]; if(o) delete o.meta; }
 
+/* 区間の追加・非表示。seed.js は書き換えず over 側に持つ。 */
+function addSeg(S,spotId,seg){
+  var o=ovW(S,spotId); o.extraSegs=o.extraSegs||[];
+  var n=1, id;
+  do{ id="x"+(n++); }while(o.extraSegs.some(function(g){return g.id===id;})
+      || ((root.SEED||[]).concat(S.customSpots||[]).filter(function(x){return x.id===spotId;})[0]||{segs:[]})
+         .segs.some(function(g){return g.id===id;}));
+  var g={id:id,label:seg.label||"追加した区間",layers:seg.layers||1};
+  if(seg.height!=null){ g.height=Math.round(seg.height*100)/100; g.src=seg.src||"confirmed"; }
+  o.extraSegs.push(g);
+  return g;
+}
+function updateSeg(S,spotId,segId,patch){
+  var o=S.over[spotId]; if(!o||!o.extraSegs) return null;
+  var g=o.extraSegs.filter(function(x){return x.id===segId;})[0]; if(!g) return null;
+  for(var k in patch){ if(patch[k]==null) delete g[k]; else g[k]=patch[k]; }
+  return g;
+}
+function removeSeg(S,spotId,segId){
+  var o=S.over[spotId]; if(!o) return;
+  if(o.extraSegs) o.extraSegs=o.extraSegs.filter(function(g){ return g.id!==segId; });
+  if(o.segs) delete o.segs[segId];
+  if(o.extraSegs&&!o.extraSegs.length) delete o.extraSegs;
+}
+function hideSeg(S,spotId,segId,on){
+  var o=ovW(S,spotId); o.segHide=o.segHide||{};
+  if(on) o.segHide[segId]=true; else delete o.segHide[segId];
+  if(!Object.keys(o.segHide).length) delete o.segHide;
+}
+function isSegHidden(S,spotId,segId){
+  var o=S.over[spotId]||{}; return !!(o.segHide&&o.segHide[segId]);
+}
+
 var EMPTY_OV={segs:{}}, EMPTY_SEG={};
 function ov(S,id){ return S.over[id]||EMPTY_OV; }
 function segOv(S,sid,gid){ return ((S.over[sid]||EMPTY_OV).segs||EMPTY_SEG)[gid]||EMPTY_SEG; }
@@ -92,7 +130,8 @@ function pruneOver(S){
       if(!Object.keys(o.segs[gid]||{}).length) delete o.segs[gid]; });
     var hasSeg=o.segs&&Object.keys(o.segs).length;
     var hasMeta=o.meta&&Object.keys(o.meta).length;
-    if(!o.rise&&!o.floorH&&!hasSeg&&!hasMeta&&!o.hidden&&!o.stairs) delete S.over[sid];
+    var hasExtra=o.extraSegs&&o.extraSegs.length, hasHide=o.segHide&&Object.keys(o.segHide).length;
+    if(!o.rise&&!o.floorH&&!hasSeg&&!hasMeta&&!o.hidden&&!o.stairs&&!hasExtra&&!hasHide) delete S.over[sid];
   });
 }
 
@@ -505,7 +544,7 @@ function derive(v){
 }
 
 root.D={RANKS:RANKS,BOUNDS:BOUNDS,CONF_RANK:CONF_RANK,pos:pos,tierOf:tierOf,lifetime:lifetime,mountainTable:mountainTable,equivalent:equivalent,
-  allSpots:allSpots,spotOf:spotOf,isHidden:isHidden,setMeta:setMeta,resetMeta:resetMeta,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
+  allSpots:allSpots,spotOf:spotOf,isHidden:isHidden,setMeta:setMeta,resetMeta:resetMeta,addSeg:addSeg,updateSeg:updateSeg,removeSeg:removeSeg,hideSeg:hideSeg,isSegHidden:isSegHidden,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
   riseFor:riseFor,floorHFor:floorHFor,resolve:resolve,spotTotal:spotTotal,backRise:backRise,
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,

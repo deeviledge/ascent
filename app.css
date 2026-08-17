@@ -395,3 +395,17 @@ svg.spark{display:block;margin:var(--s3) 0;}
 input[type=date]{width:150px;padding:9px 10px;border:var(--hair) solid var(--hairline);
   border-radius:var(--r-sm);background:var(--ink-2);font-size:var(--f-sm);
   font-family:var(--font-num);color:var(--text);}
+
+/* ---- 区間の追加・操作 ---- */
+.segops{display:flex;gap:6px;margin-top:8px;}
+.segops button{font-size:var(--f-2xs);color:var(--muted);border:var(--hair) solid var(--hairline);
+  border-radius:var(--r-sm);padding:5px 10px;}
+.segadd{border:1px dashed var(--hairline-2);border-radius:var(--r-sm);
+  padding:var(--s3);margin:var(--s3) 0;}
+.segadd .edh{font-size:var(--f-2xs);letter-spacing:.16em;color:var(--muted);
+  font-weight:700;margin-bottom:var(--s3);}
+button.ms{display:flex;width:100%;text-align:left;}
+.mdet .cat{font-size:10px;letter-spacing:.18em;font-weight:700;color:var(--cyan);}
+.mdet .cat .j{letter-spacing:0;color:var(--muted);margin-left:5px;}
+.mdet .ttl{font-size:var(--f-xl);font-weight:700;margin:8px 0;line-height:1.4;}
+.mdet .dsc{font-size:var(--f-sm);color:var(--text-2);line-height:1.8;}

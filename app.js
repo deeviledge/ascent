@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.4";
+var BUILD="2026-08-17.6";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -68,6 +68,13 @@ function render(){
   else if(ui.screen==="mountains") body=vMountains();
   else if(ui.screen==="mission") body=vMission();
   else if(ui.screen==="recap") body=vRecap();
+  else if(ui.screen==="body") body=vBody();
+  else if(ui.screen==="map") body=vMap();
+  else if(ui.screen==="edit") body=vEdit();
+  else if(ui.screen==="cards") body=vCards();
+  else if(ui.screen==="welcome") body=vWelcome();
+  else if(ui.screen==="presence") body=vPresence();
+  else if(ui.screen==="mdetail") body=vMissionDetail();
   else if(ui.screen==="stats") body=vStats();
   else if(ui.screen==="history") body=vHistory();
   else if(ui.screen==="spots") body=vSpots();
@@ -80,10 +87,13 @@ function render(){
 }
 
 function header(){
-  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home"}[ui.screen];
+  var back={record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home",body:"stats",map:"spots",
+    edit:"history",cards:"spots",presence:"stats",mdetail:"mission"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
     spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
-    mountains:"全行程",mission:"今週の遠征",recap:"週の記録"}[ui.screen];
+    mountains:"全行程",mission:"今週の遠征",recap:"週の記録",
+    body:"ボディインパクト",map:"都市攻略",edit:"記録を編集",cards:"地点カード",
+    welcome:"VERTEX",presence:"垂直的存在感",mdetail:"ミッション詳細"}[ui.screen];
   return '<div class="hd">'
     + (back?'<button class="ico" data-go="'+back+'" aria-label="戻る">'+icon("back")+'</button>':"")
     + '<div class="brand">'+esc(title)+(ui.screen==="home"?'<small>都市を、登れ。</small>':"")+'</div>'
@@ -95,7 +105,9 @@ function tabs(){
   var T=[["home","ホーム","home"],["mountains","全行程","mountain"],["stats","分析","chart"],
          ["spots","探索","map"],["history","履歴","history"]];
   // 地点の詳細・追加から来たときも「探索」を点灯させる
-  var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mission:"home",recap:"home"}[ui.screen]||ui.screen;
+  var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mission:"home",
+    recap:"home",body:"stats",map:"spots",edit:"history",cards:"spots",
+    presence:"stats",mdetail:"home",welcome:"home"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
     return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
@@ -110,7 +122,33 @@ function repeatBar(){
 }
 
 /* ===== S1 ホーム ===== */
+function vWelcome(){
+  var ex=D.exploration(S);
+  return '<div class="hero">'+Mountain.render("harukas",0,{label:"あべのハルカス"})
+    + '<div class="cap"><div class="tier">WELCOME</div>'
+    + '<div class="big num">0<i>m</i></div>'
+    + '<div class="sub">都市は、山になる。</div></div></div>'
+    + '<div class="card"><h3>はじめかた</h3>'
+    + '<div class="steps">'
+    + '<div><b>1</b><span>近くの階段をひとつ選ぶ</span></div>'
+    + '<div><b>2</b><span>登った区間にチェックを入れて「記録する」</span></div>'
+    + '<div><b>3</b><span>登った高さ(m)が積み上がる</span></div>'
+    + '</div>'
+    + '<div class="note">速さも休憩も関係ありません。登った高さだけが残ります。'
+    + 'あべのハルカス300mから始まり、最後はエベレスト8,848mです。</div></div>'
+    + '<div class="card"><h3>まずはこの辺から</h3>'
+    + ex.next.map(function(sp){
+        return '<button class="row" data-pick="'+sp.id+'"><span class="mk"></span>'
+          + '<span class="bd"><span class="nm">'+esc(sp.name)+'</span>'
+          + '<span class="sb">'+area(sp)+(sp.min?" · "+sp.min+"分":"")+'</span></span>'
+          + '<span class="vl num">'+fmt(D.spotTotal(S,sp))+'<i>m</i></span></button>'; }).join("")
+    + '<button class="ghost" data-go="spots">すべての地点から選ぶ</button></div>'
+    + '<div class="note">記録はこの端末の中だけに保存されます。'
+    + 'アカウントも通信もありません。設定からいつでも書き出せます。</div>';
+}
+
 function vHome(){
+  if(!S.entries.length && !ui.skipWelcome) return vWelcome();
   var t=D.lifetime(S), k=D.tierOf(t);
   var fx=ui.summitFx; ui.summitFx=null;
   var ex=D.exploration(S);
@@ -140,6 +178,14 @@ function vHome(){
     + cards.map(function(s){ return spotCard(s,ex.visited); }).join("")
     + '</div><button class="ghost" data-go="spots">＋ すべての地点から選ぶ</button></div>'
 
+    + '<div class="grid" style="margin-top:var(--s3)">'
+    + '<button class="sc" data-go="body"><span class="a">BODY IMPACT</span>'
+    + '<span class="n">今週の身体への影響</span>'
+    + '<span class="h num">'+D.periodStats(S,7).cur.kcal.toLocaleString()+'<i>kcal</i></span></button>'
+    + '<button class="sc" data-go="map"><span class="a">EXPLORATION</span>'
+    + '<span class="n">都市攻略マップ</span>'
+    + '<span class="h num">'+ex.done+'<i>/'+ex.total+'</i></span></button>'
+    + '</div>'
     + (ex.next.length?'<div class="card"><h3>まだ登っていない近場</h3>'
       + ex.next.map(function(s){ return '<button class="row" data-pick="'+s.id+'">'
         + '<span class="mk"></span><span class="bd"><span class="nm">'+esc(s.name)+'</span>'
@@ -151,14 +197,14 @@ function vHome(){
 function diffTag(d){ return '<span class="dif '+d.toLowerCase()+'">'+d+'</span>'; }
 function missionRow(p,i,detail){
   var it=p.item, cur=p.item.unit==="m"? fmt(p.current) : Math.round(p.current);
-  return '<div class="ms'+(p.done?" done":"")+'">'
+  return '<'+(detail?'button data-mid="'+it.id+'"':'div')+' class="ms'+(p.done?" done":"")+'">'
     + '<span class="no num">'+("0"+(i+1)).slice(-2)+'</span>'
     + '<span class="bd"><span class="cat">'+it.catLabel+(detail?' <span class="j">'+it.catJp+'</span>':'')+' '+diffTag(it.difficulty)+'</span>'
     + '<span class="ttl">'+esc(it.title)+'</span>'
     + '<span class="pb"><i style="width:'+Math.round(p.ratio*100)+'%"></i></span>'
     + '<span class="val num">'+(p.done?"COMPLETE":cur+" / "+it.target.toLocaleString()+it.unit)+'</span>'
-    + (detail?'<span class="dsc">'+esc(it.desc)+'</span>':'')
-    + '</span></div>';
+    + (detail?'<span class="dsc">'+esc(it.desc)+' ›</span>':'')
+    + '</span></'+(detail?'button':'div')+'>';
 }
 function missionCard(){
   var k=M.currentWeek(), wp=M.weekProgress(S,k), left=M.daysLeft(k);
@@ -233,6 +279,7 @@ function vRecap(){
     + '<div class="card" style="text-align:center"><div style="font-size:var(--f-md);font-weight:700">'
     + (w.m>0?'今週も、ひとつ高くなった。':'次の遠征は今日から始まります。')+'</div>'
     + '<div class="note" style="border:none;justify-content:center;margin-bottom:0">Keep climbing.</div></div>'
+    + '<button class="ghost" data-act="shareRecap">この週の結果をコピー</button>'
     + '<button class="ghost" data-act="recapSeen">確認した</button>';
 }
 
@@ -273,9 +320,14 @@ function vRecord(){
   var kc=Math.round(S.weight*add*0.01*(ui.round?1.3:1));
   var st=picked.length?Math.round(D.stepsForSegs(S,sp,picked)*(Number(ui.reps)||0)):0;
 
+  var dt=ui.date||D.today();
   return '<div class="card"><h3>'+esc(sp.area)+(sp.min?' · '+sp.min+'分':'')+'</h3>'
     + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(sp.name)+'</div>'
-    + (sp.note?'<div class="note">'+esc(sp.note)+'</div>':'')+'</div>'
+    + (sp.note?'<div class="note">'+esc(sp.note)+'</div>':'')
+    + '<div class="fr" style="margin-top:var(--s3)"><label>日付</label>'
+    + '<input id="recDate" type="date" value="'+dt+'" max="'+D.today()+'">'
+    + (dt!==D.today()?'<button class="chip" data-act="today" style="margin-left:6px">今日</button>':'')+'</div>'
+    + (dt!==D.today()?'<div class="note" style="margin-bottom:0">過去の日付で記録します。</div>':'')+'</div>'
     + '<div class="card"><h3>登った区間</h3>'
     + '<div class="mini"><button data-act="selAll">全区間</button><button data-act="selFree">改札外のみ</button>'
     + '<button data-act="selNone">クリア</button></div>'
@@ -290,6 +342,8 @@ function vRecord(){
     + '<input id="reps" type="number" inputmode="numeric" value="'+ui.reps+'"><button data-act="plus">＋</button></span></div>'
     + '<div class="fr"><label>下りも歩いた（＋30%）</label>'
     + '<input type="checkbox" id="rt" '+(ui.round?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
+    + '<div class="fr"><label>雨の日だった</label>'
+    + '<input type="checkbox" id="rain" '+(ui.rain?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
     + '</div>'
     + '<div class="card" style="text-align:center">'
     + '<div class="big num" style="font-size:var(--f-hero);font-weight:700">'+fmt(add)+'<i style="font-style:normal;font-size:var(--f-lg);color:var(--muted)">m</i></div>'
@@ -350,6 +404,256 @@ function periodMountain(){
     + (k.done?'':'　あと '+fmt(k.remain)+' m')+'</span></span>'
     + '<span class="pc num">'+Math.round(k.inTier*100)+'%</span></div>'
     + '<div class="note" style="margin-bottom:0">この期間ぶんだけを積み上げた場合の到達点です。</div></div>';
+}
+
+/* ===== Body Impact =====
+   減量管理の画面ではない。登った結果として身体に何が積み上がったかを見る画面。
+   優先順位: 獲得標高 > 消費エネルギー > 体重実測 > 脂肪換算(理論値) > ウエスト実測 */
+function sparkline(pts,key,color){
+  if(pts.length<2) return '<div class="note" style="margin:var(--s2) 0 0">まだ線を引くには足りません。</div>';
+  var W=300,H=88,pad=8;
+  var vs=pts.map(function(p){return p[key];});
+  var mn=Math.min.apply(null,vs), mx=Math.max.apply(null,vs);
+  if(mx-mn<1e-9){ mn-=1; mx+=1; }
+  var t0=new Date(pts[0].date), t1=new Date(pts[pts.length-1].date);
+  var span=Math.max(1,(t1-t0));
+  var xy=pts.map(function(p){
+    var x=pad+(new Date(p.date)-t0)/span*(W-pad*2);
+    var y=H-pad-((p[key]-mn)/(mx-mn))*(H-pad*2);
+    return {x:x,y:y,v:p[key],d:p.date};
+  });
+  var d="M"+xy.map(function(q){return q.x.toFixed(1)+" "+q.y.toFixed(1);}).join(" L");
+  return '<svg class="prof spark" viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'">'
+    + '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'
+    + xy.map(function(q){ return '<circle cx="'+q.x.toFixed(1)+'" cy="'+q.y.toFixed(1)+'" r="2.6" fill="'+color+'"/>'; }).join("")
+    + '<text x="'+pad+'" y="12" fill="var(--muted)" font-size="10">'+(Math.round(mx*10)/10)+'</text>'
+    + '<text x="'+pad+'" y="'+(H-1)+'" fill="var(--muted)" font-size="10">'+(Math.round(mn*10)/10)+'</text>'
+    + '</svg>';
+}
+function vBody(){
+  var days=ui.bodyPeriod||30;
+  var p=D.periodStats(S,days), wk=M.weekSummary(S,M.currentWeek());
+  var all=D.allTimeStats(S);
+  var w=D.measures(S,"weightKg"), wa=D.measures(S,"waistCm");
+  var lastW=w.length?w[w.length-1]:null, firstW=w.length?w[0]:null;
+  var lastA=wa.length?wa[wa.length-1]:null, firstA=wa.length?wa[0]:null;
+  var avg7=D.avgMeasure(S,"weightKg",7), avg30=D.avgMeasure(S,"weightKg",30);
+  var fat=D.fatCumulative(S,days);
+  var g=function(k){ return Math.round(D.fatG(k,S)); };
+
+  return '<div class="chips">'+[[30,"30日"],[90,"90日"],[180,"180日"]].map(function(x){
+      return '<button class="chip '+(days===x[0]?"on":"")+'" data-bper="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
+
+    + '<div class="card"><h3>この期間の登攀</h3>'
+    + '<div class="chain"><div class="hi"><span class="k">獲得標高</span>'
+    + '<span class="v num">'+fmt(p.cur.m)+'<i>m</i></span></div>'
+    + '<div class="arw">↓</div>'
+    + '<div><span class="k">消費エネルギー</span>'
+    + '<span class="v num">'+p.cur.kcal.toLocaleString()+'<i>kcal</i></span></div>'
+    + '<div class="arw">↓</div>'
+    + '<div><span class="k">脂肪換算（理論値）</span>'
+    + '<span class="v num amb">約 '+g(p.cur.kcal).toLocaleString()+'<i>g</i></span></div></div>'
+    + '<div class="note" style="margin-bottom:0">消費エネルギーを 7,200kcal/kg として換算した参考値です。'
+    + '実際の体脂肪の増減を示すものではありません。</div></div>'
+
+    + '<div class="stats">'
+    + '<div><div class="k">今週</div><div class="v num">'+fmt(wk.m)+'<i>m</i></div>'
+    + '<span class="d">'+wk.kcal.toLocaleString()+'kcal ・ 約'+g(wk.kcal)+'g</span></div>'
+    + '<div><div class="k">累計</div><div class="v num">'+fmt(all.cur.m)+'<i>m</i></div>'
+    + '<span class="d">'+all.cur.kcal.toLocaleString()+'kcal ・ 約'+(g(all.cur.kcal)>=1000
+        ? (Math.round(g(all.cur.kcal)/100)/10)+'kg' : g(all.cur.kcal)+'g')+'</span></div></div>'
+
+    + (w.length? '<div class="card"><h3>体重（実測）</h3>'
+        + '<div class="eqline"><span class="num v">'+r1v(lastW.weightKg)+'<i>kg</i></span>'
+        + (w.length>1?'<span class="k">'+r1v(firstW.weightKg)+' → '+r1v(lastW.weightKg)
+            +'（'+((lastW.weightKg-firstW.weightKg)>=0?"+":"")+r1v(lastW.weightKg-firstW.weightKg)+'kg）</span>':'')
+        + '</div>'
+        + sparkline(w.filter(function(m){return m.date>=D.dayShift(-(days-1));}),"weightKg","var(--cyan)")
+        + '<div class="vrow"><span>7日平均</span><b class="num">'+(avg7?Math.round(avg7*10)/10+" kg":"—")+'</b></div>'
+        + '<div class="vrow"><span>30日平均</span><b class="num">'+(avg30?Math.round(avg30*10)/10+" kg":"—")+'</b></div>'
+        + '<div class="note" style="margin-bottom:0">実測した日だけを点で結んでいます。'
+        + '体重は日々ぶれるので、単日より平均を見てください。</div></div>' : '')
+
+    + '<div class="card"><h3>脂肪換算（理論値・累積）</h3>'
+    + '<div class="eqline"><span class="num v amb">約 '+Math.round(fat[fat.length-1].g).toLocaleString()+'<i>g</i></span>'
+    + '<span class="k">直近'+days+'日の積み上げ</span></div>'
+    + sparkline(fat,"g","var(--amber)")
+    + '<div class="note" style="margin-bottom:0">エネルギー換算による理論値です。体重の増減とは別のものです。</div></div>'
+
+    + (wa.length? '<div class="card"><h3>ウエスト（実測）</h3>'
+        + '<div class="eqline"><span class="num v">'+r1v(lastA.waistCm)+'<i>cm</i></span>'
+        + (wa.length>1?'<span class="k">'+r1v(firstA.waistCm)+' → '+r1v(lastA.waistCm)+' cm</span>':'')+'</div>'
+        + sparkline(wa.filter(function(m){return m.date>=D.dayShift(-(days-1));}),"waistCm","var(--cyan)")
+        + '</div>' : '')
+
+    + '<div class="card"><h3>身体データを記録</h3>'
+    + '<div class="fr"><label>日付</label><input id="mDate" type="date" value="'+(ui.mDate||D.today())+'"></div>'
+    + '<div class="fr"><label>体重</label><input id="mW" type="number" inputmode="decimal" step="0.1" placeholder="'
+      +(lastW?r1v(lastW.weightKg):"—")+'"><span class="u">kg</span></div>'
+    + '<div class="fr"><label>ウエスト</label><input id="mA" type="number" inputmode="decimal" step="0.1" placeholder="'
+      +(lastA?r1v(lastA.waistCm):"—")+'"><span class="u">cm</span></div>'
+    + '<button class="primary" data-act="saveMeasure">記録する</button>'
+    + '<div class="note" style="margin-bottom:0">入力した実測値だけを使います。'
+    + '活動量から体重や体脂肪を推定することはしません。</div></div>'
+
+    + (w.length>1? '<div class="card"><h3>同じ期間の活動量</h3>'
+        + '<div class="vrow"><span>獲得標高</span><b class="num">'+fmt(p.cur.m)+' m</b></div>'
+        + '<div class="vrow"><span>消費エネルギー</span><b class="num">'+p.cur.kcal.toLocaleString()+' kcal</b></div>'
+        + '<div class="vrow"><span>記録した日</span><b class="num">'+p.cur.days+' 日</b></div>'
+        + '<div class="note" style="margin-bottom:0">参考として並べています。'
+        + '体重の変化がこの活動によるものだと判断することはできません。</div></div>' : '');
+}
+
+/* ===== Vertical Presence =====
+   今週、都市の中でどれだけ上へ進んだか。 */
+function vPresence(){
+  var k=M.currentWeek(), w=M.weekSummary(S,k), pw=M.weekSummary(S,M.prevWeek(k));
+  var d=w.m-pw.m, mx=Math.max.apply(null,w.byDay.map(function(x){return x.m;}))||1;
+  var best=w.byDay.reduce(function(a,x){ return x.m>a.m?x:a; },{m:0,dow:"—"});
+  var run=0,bestRun=0; w.byDay.forEach(function(x){ run=x.m>0?run+1:0; if(run>bestRun)bestRun=run; });
+  var t=D.lifetime(S), tier=D.tierOf(t);
+  return '<div class="card"><h3>今週の垂直的存在感 '+M.weekLabel(k)+'</h3>'
+    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(w.m)+'<i>m</i></span>'
+    + '<span class="k" style="color:'+(d>=0?"var(--green)":"var(--muted)")+'">'
+    + (d>=0?"+":"")+fmt(d)+' m vs 先週</span></div></div>'
+    + '<div class="card"><h3>DAILY ASCENT</h3><div class="days">'
+    + w.byDay.map(function(x){
+        return '<div class="'+(x.m===best.m&&x.m>0?"now":"")+'">'
+          + '<i style="height:'+Math.max(3,x.m/mx*62)+'px"></i><span>'+x.dow+'</span></div>'; }).join("")
+    + '</div></div>'
+    + '<div class="stats">'
+    + '<div><div class="k">最高単日</div><div class="v num">'+fmt(best.m)+'<i>m</i></div>'
+    + '<span class="d">'+(best.m>0?best.dow+'曜':'—')+'</span></div>'
+    + '<div><div class="k">最長連続</div><div class="v num">'+bestRun+'<i>日</i></div>'
+    + '<span class="d">今週のうち</span></div>'
+    + '<div><div class="k">活動日数</div><div class="v num">'+w.days+'<i>日</i></div>'
+    + '<span class="d">7日中</span></div>'
+    + '<div><div class="k">登った場所</div><div class="v num">'+w.spots+'<i>ヶ所</i></div>'
+    + '<span class="d">新規 '+w.newSpots+'</span></div></div>'
+    + '<div class="card"><h3>CURRENT SUMMIT</h3>'
+    + '<div style="font-size:var(--f-lg);font-weight:700">'+esc(tier.tier.name)+'</div>'
+    + '<div class="note" style="border:none;padding:0">'+fmt(t)+' / '+tier.tier.m.toLocaleString()+' m'
+    + (tier.remain>0?' — 次の山まで あと '+fmt(tier.remain)+'m':' — 制覇')+'</div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(tier.inTier*100)+'%"></i></div>'
+    + '<button class="ghost" data-go="mountains">全行程を見る</button></div>';
+}
+
+/* ===== ミッション詳細 ===== */
+function vMissionDetail(){
+  var k=M.currentWeek(), wp=M.weekProgress(S,k);
+  var p=wp.items.filter(function(x){ return x.item.id===ui.missionId; })[0];
+  if(!p) return '<div class="empty">ミッションが見つかりません。</div>';
+  var it=p.item, cur=it.unit==="m"?fmt(p.current):Math.round(p.current);
+  var t=D.lifetime(S), tier=D.tierOf(t);
+  var gain=(it.cat==="ascent")?Math.max(0,it.target-p.current):0;
+  return '<div class="card mdet"><div class="cat">'+it.catLabel+' <span class="j">'+it.catJp+'</span>'
+    + diffTag(it.difficulty)+'</div>'
+    + '<div class="ttl">'+esc(it.title)+'</div>'
+    + '<div class="dsc">'+esc(it.desc)+'</div></div>'
+    + '<div class="card"><h3>進捗</h3>'
+    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+cur+'</span>'
+    + '<span class="k">/ '+it.target.toLocaleString()+it.unit+'</span></div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+Math.round(p.ratio*100)+'%;background:'
+    + (p.done?"var(--green)":"var(--orange)")+'"></i></div>'
+    + '<div class="note" style="margin-bottom:0">'
+    + (p.done?'<b style="color:var(--green)">達成済み</b>'
+             :'残り '+(it.unit==="m"?fmt(it.target-p.current):Math.ceil(it.target-p.current))+it.unit
+              +' ・ 締切まで '+M.daysLeft(k)+'日')+'</div></div>'
+    + '<div class="card"><h3>遠征上の意味</h3>'
+    + '<div class="vrow"><span>いまの山</span><b>'+esc(tier.tier.name)+'</b></div>'
+    + '<div class="vrow"><span>山頂まで</span><b class="num">'+fmt(tier.remain)+' m</b></div>'
+    + (gain>0?'<div class="vrow"><span>これを達成すると</span><b class="num" style="color:var(--orange)">+'
+        +fmt(gain)+' m</b></div>':'')
+    + '<div class="note" style="margin-bottom:0">'
+    + (it.cat==="ascent"?'高さそのものを稼ぐミッションです。達成ぶんがそのまま山を押し上げます。'
+      :it.cat==="consistency"?'続けることを狙うミッションです。1回の大きさより回数が効きます。'
+      :it.cat==="exploration"?'まだ登っていない場所を開拓するミッションです。探索率が上がります。'
+      :'いつもより一段きついことをするミッションです。')+'</div></div>'
+    + '<div class="card"><h3>この目標が出た理由</h3>'
+    + (it.trace? '<div class="vrow"><span>下敷きの値</span><b class="num">'+fmt(it.trace.base)+'</b></div>'
+      + '<div class="vrow"><span>調整</span><b class="num">'+(it.trace.adjust>=0?"+":"")+it.trace.adjust+'%</b></div>'
+      + '<div class="vrow"><span>採用</span><b class="num">'+it.trace.applied.toLocaleString()+it.unit+'</b></div>' : '')
+    + '<div class="note" style="margin-bottom:0">直近4週の実績から算出しています。'
+    + '週の途中で目標が変わることはありません。</div></div>'
+    + '<button class="ghost" data-act="shareMission">この内容をコピー</button>';
+}
+
+/* ===== 都市攻略マップ ===== */
+function vMap(){
+  var visited=D.exploration(S).visited;
+  var areas={};
+  D.allSpots(S).forEach(function(sp){
+    var a=sp.area&&sp.area!=="—"?sp.area:"その他";
+    (areas[a]=areas[a]||{name:a,spots:[],done:0,m:0}).spots.push(sp);
+    if(visited.has(sp.id)){ areas[a].done++; areas[a].m+=D.spotStats(S,sp.id).total; }
+  });
+  var list=Object.keys(areas).map(function(k){return areas[k];})
+    .sort(function(a,b){ return (b.done/b.spots.length)-(a.done/a.spots.length)||b.spots.length-a.spots.length; });
+  var ex=D.exploration(S);
+  return '<div class="card"><h3>都市攻略</h3>'
+    + '<div class="eqline"><span class="num v">'+ex.done+'<i>/'+ex.total+'</i></span>'
+    + '<span class="k">'+Math.round(ex.done/ex.total*100)+'% 攻略</span></div>'
+    + '<div class="pb" style="margin-top:var(--s2)"><i style="width:'+(ex.done/ex.total*100)+'%"></i></div>'
+    + '<div class="note" style="margin-bottom:0">距離ではなく、この街のどこを登ったかで見る地図です。</div></div>'
+    + list.map(function(a){
+        var pct=Math.round(a.done/a.spots.length*100);
+        return '<div class="card"><h3>'+esc(a.name)+' <span class="rt">'+a.done+'/'+a.spots.length
+          + (a.m?' ・ '+fmt(a.m)+'m':'')+'</span></h3>'
+          + '<div class="pb" style="margin-bottom:var(--s3)"><i style="width:'+pct+'%"></i></div>'
+          + '<div class="mapgrid">'+a.spots.map(function(sp){
+              var got=visited.has(sp.id), st=D.spotStats(S,sp.id);
+              return '<button class="mp'+(got?" got":"")+'" data-spot="'+sp.id+'">'
+                + '<span class="dot"></span>'
+                + '<span class="n">'+esc(sp.name)+'</span>'
+                + '<span class="h num">'+fmt(D.spotTotal(S,sp))+'m</span>'
+                + '<span class="s">'+(got?"登頂 "+st.visits+"回":"未踏")+'</span></button>'; }).join("")
+          + '</div></div>'; }).join("");
+}
+
+/* ===== 地点カード ===== */
+function vCards(){
+  var visited=D.exploration(S).visited;
+  var list=D.allSpots(S).slice().sort(function(a,b){
+    var x=visited.has(a.id)?0:1, y=visited.has(b.id)?0:1;
+    return x-y || D.spotTotal(S,b)-D.spotTotal(S,a); });
+  var CONFCLS={"実測":"c-meas","確定":"c-conf","導出":"c-der","推定":"c-est"};
+  return '<div class="note">地点ごとの1枚。現地で測って確度が上がると、カードが格上げされます。</div>'
+    + '<div class="cards">'+list.map(function(sp){
+        var got=visited.has(sp.id), st=D.spotStats(S,sp.id), cf=D.spotConfidence(S,sp);
+        return '<button class="cd '+(got?"got":"")+' '+CONFCLS[cf]+'" data-spot="'+sp.id+'">'
+          + '<span class="rank">'+cf+'</span>'
+          + '<span class="nm">'+esc(sp.name)+'</span>'
+          + '<span class="ar">'+area(sp)+'</span>'
+          + '<span class="hh num">'+fmt(D.spotTotal(S,sp))+'<i>m</i></span>'
+          + '<span class="ft">'+(got?("初登頂 "+st.first.slice(5).replace("-","/")+" ・ "+st.visits+"回")
+                                    :"未踏")+'</span></button>'; }).join("")+'</div>';
+}
+
+/* ===== 記録の編集 ===== */
+function vEdit(){
+  var e=S.entries.filter(function(x){ return String(x.id)===String(ui.editEntry); })[0];
+  if(!e) return '<div class="empty">記録が見つかりません。</div>';
+  var sp=D.spotOf(S,e.spotId);
+  var unit=e.unitM, meters=unit*(Number(ui.eReps)||e.reps);
+  var round=(ui.eRound==null?e.round:ui.eRound);
+  var kc=Math.round((e.weightAtSave||S.weight)*meters*0.01*(round?1.3:1));
+  return '<div class="card"><h3>'+esc(e.name)+'</h3>'
+    + '<div class="fr"><label>日付</label><input id="eDate" type="date" value="'+(ui.eDate||e.date)+'"></div>'
+    + '<div class="fr"><label>本数</label><span class="stepper">'
+    + '<button data-act="eMinus">−</button><input id="eReps" type="number" inputmode="numeric" value="'
+    + (ui.eReps||e.reps)+'"><button data-act="ePlus">＋</button></span></div>'
+    + '<div class="fr"><label>下りも歩いた（＋30%）</label>'
+    + '<input type="checkbox" id="eRound" '+(round?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
+    + '<div class="fr"><label>雨の日だった</label>'
+    + '<input type="checkbox" id="eRain" '+((ui.eRain==null?(e.cond&&e.cond.rain):ui.eRain)?"checked":"")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
+    + '</div>'
+    + '<div class="card" style="text-align:center">'
+    + '<div class="num" style="font-size:var(--f-hero);font-weight:700">'+fmt(meters)+'<i style="font-style:normal;font-size:var(--f-lg);color:var(--muted)">m</i></div>'
+    + '<div class="note" style="border:none;justify-content:center;padding:0;margin-top:6px">約 '+kc.toLocaleString()+' kcal</div>'
+    + '<button class="primary" data-act="saveEdit">この内容で更新する</button>'
+    + '<button class="ghost" data-del="'+e.id+'" style="border-color:var(--danger);color:var(--danger)">この記録を削除</button></div>'
+    + '<div class="note">1本あたりの高さ（'+fmt(unit)+'m）は記録時のまま保持します。'
+    + '区間の構成を変えたい場合は、削除して入れ直してください。</div>';
 }
 
 /* ===== S3 分析 ===== */
@@ -418,7 +722,63 @@ function vStats(){
         + '<span class="pb"><i style="width:'+(a.done/a.total*100)+'%"></i></span>'
         + '<span class="ct num">'+a.done+'/'+a.total+'</span></div>'; }).join("")+'</div>'
 
-    + '<div class="card"><h3>実績 '+got+'/14</h3><div class="ach">'
+    + (function(){ var cs=D.monthlyCerts(S).slice(0,4);
+        if(!cs.length) return '';
+        return '<div class="card"><h3>月間認定</h3>'
+          + cs.map(function(c){
+              return '<div class="bl"><span class="nm">'+c.month.replace("-","/")+'</span>'
+                + '<span class="pb"><i style="width:'+Math.round(c.ratio*100)+'%"></i></span>'
+                + '<span class="ct num">'+fmt(c.m)+'m</span></div>'
+                + '<div class="note" style="margin:0 0 9px">'
+                + (c.mountain?'<b style="color:var(--green)">'+esc(c.mountain.name)+' 認定</b>'
+                            :'認定なし')
+                + (c.next?' ・ '+esc(c.next.name)+'まで あと '+fmt(c.remain)+'m':'')+'</div>'; }).join("")
+          + '<div class="note" style="margin-bottom:0">累計とは別に、その月の合計だけで判定します。毎月リセットです。</div></div>'; })()
+
+    + (function(){ var g=D.ghost(S);
+        if(!g.curM&&!g.prevM) return '';
+        var mx=Math.max(Math.max.apply(null,g.cur),Math.max.apply(null,g.prev),1);
+        var line=function(arr,color,upto){
+          var W=300,H=70,pad=6, n=Math.max(arr.length,1);
+          var pts=arr.slice(0,upto||arr.length).map(function(v,i){
+            return (pad+i/(n-1||1)*(W-pad*2)).toFixed(1)+" "+(H-pad-(v/mx)*(H-pad*2)).toFixed(1); });
+          return pts.length>1?'<path d="M'+pts.join(" L")+'" fill="none" stroke="'+color+'" stroke-width="2.2"/>':'';
+        };
+        return '<div class="card"><h3>先月の自分との対戦</h3>'
+          + '<svg class="prof" viewBox="0 0 300 70" width="100%" height="70">'
+          + line(g.prev,"var(--muted)") + line(g.cur,"var(--orange)",g.day) + '</svg>'
+          + '<div class="bl"><span class="nm" style="color:var(--orange)">今月</span>'
+          + '<span class="ct num">'+fmt(g.curM)+'m</span></div>'
+          + '<div class="bl"><span class="nm">先月 同日</span><span class="ct num">'+fmt(g.prevM)+'m</span></div>'
+          + '<div class="note" style="margin-bottom:0">'
+          + (g.lead>=0?'<b style="color:var(--green)">'+fmt(g.lead)+'m リード</b>'
+                      :fmt(-g.lead)+'m ビハインド')+'</div></div>'; })()
+
+    + (function(){ var tv=D.traverses(S).slice(0,5);
+        if(!tv.length) return '';
+        return '<div class="card"><h3>縦走</h3>'
+          + tv.map(function(t){
+              return '<div class="row" style="background:var(--surface-2)"><span class="mk boss"></span>'
+                + '<span class="bd"><span class="nm">'+esc(t.area)+' 縦走 ×'+t.n+'</span>'
+                + '<span class="sb">'+t.date.slice(5).replace("-","/")+' ・ '+esc(t.spots.join(" → "))+'</span></span></div>'; }).join("")
+          + '<div class="note" style="margin-bottom:0">1日で同じエリアの2ヶ所以上を登ると成立します。</div></div>'; })()
+
+    + (function(){ var c=D.condStats(S);
+        if(!c.early&&!c.night&&!c.rain) return '';
+        return '<div class="card"><h3>悪条件での登攀</h3>'
+          + '<div class="vrow"><span>早朝（7時前）</span><b class="num">'+c.early+' 回</b></div>'
+          + '<div class="vrow"><span>夜（21時以降）</span><b class="num">'+c.night+' 回</b></div>'
+          + '<div class="vrow"><span>雨の日</span><b class="num">'+c.rain+' 回</b></div></div>'; })()
+
+    + '<div class="card"><h3>垂直的存在感</h3>'
+    + '<div class="note">今週、都市の中でどれだけ上へ進んだか。</div>'
+    + '<button class="ghost" data-go="presence">バーティカルプレゼンスをひらく</button></div>'
+
+    + '<div class="card"><h3>ボディインパクト</h3>'
+    + '<div class="note">登った結果として、身体にどれだけ積み上がったか。</div>'
+    + '<button class="ghost" data-go="body">ボディインパクトをひらく</button></div>'
+
+    + '<div class="card"><h3>実績 '+got+'/'+ac.length+'</h3><div class="ach">'
     + ac.map(function(a){ return '<div class="'+(a.got?"got":"")+(a.lapsed?" lapsed":"")+'"><b>'+esc(a.name)+'</b>'
         + '<span>'+esc(a.lapsed?"解除済み（現在は条件外）":a.desc)+'</span></div>'; }).join("")
     + '</div></div>';
@@ -442,6 +802,7 @@ function vHistory(){
           + '<span class="sb num">'+fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
           + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段</span></span>'
           + '<span class="vl num">'+fmt(e.meters)+'<i>m</i></span>'
+          + '<button class="x" data-edit="'+e.id+'" aria-label="編集">✎</button>'
           + '<button class="x" data-del="'+e.id+'" aria-label="削除">×</button></div>'; }).join("")
       + '</div>'; }).join("");
 }
@@ -454,6 +815,9 @@ function vSpots(){
     : D.allSpots(S).filter(function(s){return s.cat===ui.cat;});
   return '<div class="card"><h3>探索 '+ex.done+' / '+ex.total+'</h3>'
     + '<div class="pb"><i style="width:'+(ex.done/ex.total*100)+'%"></i></div>'
+    + '<div class="mini" style="margin-top:var(--s3);margin-bottom:0">'
+    + '<button data-go="map">都市攻略マップ</button>'
+    + '<button data-go="cards">地点カード</button></div>'
     + '<button class="ghost" data-go="newspot">＋ 新しい地点を追加</button></div>'
     + '<div class="chips" style="margin-top:var(--s3)">'
     + CATS.map(function(c){ return '<button class="chip '+(ui.cat===c[0]?"on":"")+'" data-cat="'+c[0]+'">'+c[1]+'</button>'; }).join("")
@@ -477,6 +841,10 @@ function vSpotDetail(){
     + (sp.totalM?' · 公表 '+sp.totalM+'m':'')+'</div>'
     + (sp.totalSteps?'<div class="note">全区間の実測段数 '+sp.totalSteps+'段（公表）。現在の基準蹴上げ '
       +Math.round(S.baseRise*1000)+'mm なら全体 '+fmt(sp.totalSteps*S.baseRise)+'m。</div>':'')
+    + (function(){ var st=D.spotStats(S,sp.id);
+        return st.visits? '<div class="vrow"><span>初登頂</span><b class="num">'+st.first.replace(/-/g,"/")+'</b></div>'
+          + '<div class="vrow"><span>登頂回数</span><b class="num">'+st.visits+' 回</b></div>'
+          + '<div class="vrow"><span>ここでの累計</span><b class="num">'+fmt(st.total)+' m</b></div>' : ''; })()
     + '<button class="primary" data-pick="'+sp.id+'" style="background:var(--surface-2);color:var(--text)">この地点で記録する</button></div>'
 
     + '<div class="card"><h3>この地点の情報</h3>'
@@ -490,6 +858,12 @@ function vSpotDetail(){
     + (sp.edited&&!sp.isCustom?'<button class="ghost" data-resetmeta="'+sp.id+'">編集前（マスタの内容）に戻す</button>':'')
     + '</div>'
 
+    + (function(){ var st=D.stairsOf(S,sp.id), L=[["unknown","未確認"],["yes","階段あり"],["no","なし・不可"]];
+        return '<div class="card"><h3>階段の有無</h3><div class="chips">'
+          + L.map(function(x){ return '<button class="chip '+(st===x[0]?"on":"")+'" data-stairs="'+x[0]+'">'+x[1]+'</button>'; }).join("")
+          + '</div><div class="note" style="margin-bottom:0">現地でしか分からない情報です。'
+          + '「なし・不可」にした地点は探索の候補から外れます。</div></div>'; })()
+
     + '<div class="card"><h3>この施設に一括適用</h3>'
     + '<div class="fr"><label>蹴上げ（1段）</label><input class="sIn" data-k="rise" type="number" inputmode="decimal" value="'
     + (o.rise?Math.round(o.rise*1000):"")+'" placeholder="'+Math.round(S.baseRise*1000)+'"><span class="u">mm</span></div>'
@@ -501,14 +875,21 @@ function vSpotDetail(){
     + sp.segs.map(function(g){
         var so=D.segOv(S,sp.id,g.id), r=D.resolve(S,sp,g), br=D.backRise(S,sp,g);
         return '<div style="border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);padding:var(--s3);margin-bottom:var(--s2)">'
-          + '<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:var(--f-sm);font-weight:600">'+esc(g.label)+'</span>'
+          + '<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:var(--f-sm);font-weight:600">'+esc(g.label)
+          + (g.added?' <span class="cf c-meas">追加</span>':'')+'</span>'
           + '<span class="cf '+r.cls+'">'+r.conf+'</span><span class="num" style="font-weight:700">'+fmt(r.m)+'m</span></div>'
+          + '<div class="segops">'
+          + (g.added
+              ? '<button data-rmsegx="'+g.id+'">この区間を削除</button>'
+              : '<button data-hideseg="'+g.id+'">この区間を隠す</button>')
+          + '</div>'
           + '<div class="tri"><div><span>段数</span><input class="gIn" data-g="'+g.id+'" data-k="steps" type="number" inputmode="numeric" value="'+(so.steps||"")+'" placeholder="—"></div>'
           + '<div><span>蹴上げ mm</span><input class="gIn" data-g="'+g.id+'" data-k="rise" type="number" inputmode="decimal" value="'+(so.rise?Math.round(so.rise*1000):"")+'" placeholder="—"></div>'
           + '<div><span>高さ m</span><input class="gIn" data-g="'+g.id+'" data-k="height" type="number" inputmode="decimal" value="'+(so.height||"")+'" placeholder="—"></div></div>'
           + (br?'<div class="hint">逆算 → 蹴上げ '+Math.round(br*1000)+'mm'
             + '<button data-base="'+Math.round(br*1000)+'">これを基準値にする</button></div>':'')
           + '</div>'; }).join("")
+    + segAdder(sp)
     + '<button class="ghost" data-clear="'+sp.id+'">計測した値をすべて消す</button></div>'
 
     + '<div class="card"><h3>使わないとき</h3>'
@@ -520,6 +901,38 @@ function vSpotDetail(){
     + (sp.isCustom?'<div class="note" style="margin-top:var(--s4)">自分で追加した地点は完全に削除できます。計測した値も消えます。</div>'
         +'<button class="ghost" data-delspot="'+sp.id+'" style="border-color:var(--danger);color:var(--danger)">この地点を完全に削除</button>':'')
     + '</div>';
+}
+
+function segAdder(sp){
+  var o=D.ov(S,sp.id), hidden=Object.keys(o.segHide||{});
+  var base=(window.SEED||[]).concat(S.customSpots||[]).filter(function(x){return x.id===sp.id;})[0];
+  var d=ui.segDraft||{label:"",layers:"",steps:"",rise:"",height:""};
+  var v={steps:num(d.steps),rise:num(d.rise),height:num(d.height),layers:num(d.layers)};
+  var der=D.derive(v), warn=D.checkSeg(v);
+  var f=D.floorHFor(S,sp);
+  var h = num(d.height) || (num(d.steps)&&num(d.rise)? num(d.steps)*num(d.rise)/1000 : 0)
+        || (num(d.layers)? num(d.layers)*f.v : 0);
+  return (hidden.length? '<div class="note">隠している区間：'
+      + hidden.map(function(id){
+          var g=(base&&base.segs||[]).filter(function(x){return x.id===id;})[0];
+          return '<button class="chip" data-showseg="'+id+'" style="margin:3px 4px 0 0">'
+            + esc(g?g.label:id)+' を戻す</button>'; }).join("")+'</div>' : '')
+    + '<div class="segadd"><div class="edh">区間を追加</div>'
+    + '<div class="fr"><input class="aIn wide" data-k="label" type="text" value="'+esc(d.label)+'" placeholder="例：1F→17F"></div>'
+    + '<div class="fr"><label>層数</label><input class="aIn" data-k="layers" type="number" inputmode="numeric" value="'+esc(d.layers)+'"><span class="u">層</span></div>'
+    + '<div class="tri"><div><span>段数</span><input class="aIn'+(der.steps?" auto":"")+'" data-k="steps" type="number" inputmode="numeric" value="'+(d.steps||der.steps||"")+'"></div>'
+    + '<div><span>蹴上げ mm</span><input class="aIn'+(der.rise?" auto":"")+'" data-k="rise" type="number" inputmode="decimal" value="'+(d.rise||der.rise||"")+'"></div>'
+    + '<div><span>高さ m</span><input class="aIn'+(der.height?" auto":"")+'" data-k="height" type="number" inputmode="decimal" value="'+(d.height||der.height||"")+'"></div></div>'
+    + warn.map(function(x){
+        if(x.lv==="conflict") return '<div class="warn conflict">'+esc(x.msg)
+          + '<div class="pick"><button data-act="segfixA" data-h="'+x.a.height+'">'+esc(x.a.label)+'</button>'
+          + '<button data-act="segfixB" data-h="'+x.b.height+'">'+esc(x.b.label)+'</button></div></div>';
+        return '<div class="warn">'+esc(x.msg)+'</div>'; }).join("")
+    + '<div class="fr" style="margin-top:var(--s2)"><label>この区間の高さ</label>'
+    + '<span class="num" style="font-weight:700">'+fmt(h)+' m</span></div>'
+    + (!num(d.height)&&!(num(d.steps)&&num(d.rise))&&num(d.layers)
+        ? '<div class="note" style="margin:6px 0 0">高さも段数も無いので、層数 × 階高 '+r1(f.v)+'m で仮置きします（確度＝推定）。</div>' : '')
+    + '<button class="ghost" data-act="addSegNow" '+(h>0?"":"disabled")+'>この区間を追加</button></div>';
 }
 
 /* ===== S7 地点の新規追加 ===== */
@@ -553,6 +966,7 @@ function vNewSpot(){
     + (num(d.totalM)?'<div class="note">公表 '+d.totalM+'m との差 '+fmt(Math.abs(segSum-num(d.totalM)))+'m</div>':'')
     + '<button class="primary" data-act="saveSpot" '+(d.name.trim()&&segSum>0?"":"disabled")+'>この地点を追加</button></div>';
 }
+function r1v(n){ return Math.round(n*10)/10; }
 function segHeight(s,floorH){
   if(num(s.height)) return num(s.height);
   if(num(s.steps)&&num(s.rise)) return num(s.steps)*num(s.rise)/1000;
@@ -660,7 +1074,9 @@ function commit(){
   var before=D.lifetime(S), now=Date.now(), segs={}, best=null;
   picked.forEach(function(g){ var c=D.resolve(S,sp,g).conf; segs[g.id]=c;
     if(best===null||D.CONF_RANK[c]>D.CONF_RANK[best]) best=c; });
-  var e={id:now,date:D.today(),createdAt:new Date(now).toISOString(),
+  var dt=ui.date||D.today();
+  var e={id:now,date:dt,createdAt:(dt===D.today()?new Date(now).toISOString():dt+"T12:00:00"),
+    createdAtEstimated:(dt!==D.today())||undefined, cond:(ui.rain?{rain:true}:undefined),
     spotId:sp.id,name:sp.name,segIds:picked.map(function(g){return g.id;}),
     unitM:unit,reps:reps,meters:meters,round:ui.round,cat:sp.cat,
     steps:Math.round(D.stepsForSegs(S,sp,picked)*reps),
@@ -684,7 +1100,7 @@ function commit(){
     S.missionState[x.id]={completedAt:new Date().toISOString()}; });
   if(events.some(function(x){return x.type==="MISSION_COMPLETED";})) save();
 
-  ui.reps=1; ui.screen="home";
+  ui.reps=1; ui.date=null; ui.rain=false; ui.screen="home";
   var top=D.topEvent(events);
   if(top&&top.type==="SUMMIT_COMPLETED") ui.summitFx=top.id;
   render();
@@ -817,6 +1233,17 @@ var ACTIONS={
   mcat:function(v){ D.setMeta(S,ui.editSpot,"cat",v); save(); render(); toast("保存しました"); },
   resetmeta:function(v){ D.resetMeta(S,v); D.pruneOver(S); save(); render(); toast("元に戻しました"); },
   dcat:function(v){ ui.draft.cat=v; render(); },
+  bper:function(v){ ui.bodyPeriod=Number(v); render(); },
+  stairs:function(v){ D.setStairs(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("保存しました"); },
+  mid:function(v){ ui.missionId=v; ui.screen="mdetail"; try{window.scrollTo(0,0);}catch(e){} render(); },
+  rmsegx:function(v){ if(!confirm("この区間を削除します。よろしいですか？")) return;
+    D.removeSeg(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("削除しました"); },
+  hideseg:function(v){ D.hideSeg(S,ui.editSpot,v,true); save(); render();
+    toast("区間を隠しました",null,{label:"戻す",fn:function(){
+      D.hideSeg(S,ui.editSpot,v,false); D.pruneOver(S); save(); render(); }}); },
+  showseg:function(v){ D.hideSeg(S,ui.editSpot,v,false); D.pruneOver(S); save(); render(); toast("戻しました"); },
+  edit:function(v){ ui.editEntry=v; ui.eDate=null; ui.eReps=null; ui.eRound=null; ui.eRain=null;
+    ui.screen="edit"; try{window.scrollTo(0,0);}catch(e){} render(); },
   rmseg:function(v){ ui.draft.segs.splice(Number(v),1); render(); },
   act:function(v,el){ (ACTS[v]||function(){})(el); }
 };
@@ -839,11 +1266,32 @@ var ACTS={
   expJ:exportJSON,
   impJ:function(){ var f=$("impF"); if(f) f.click(); },
   hardReload:hardReload,
+  today:function(){ ui.date=D.today(); render(); },
+  eMinus:function(){ var e=curEntry(); if(e) ui.eReps=Math.max(1,Number(ui.eReps||e.reps)-1); render(); },
+  ePlus:function(){ var e=curEntry(); if(e) ui.eReps=Number(ui.eReps||e.reps)+1; render(); },
+  saveEdit:saveEdit,
+  saveMeasure:saveMeasure,
+  addSegNow:addSegNow,
+  segfixA:function(el){ ui.segDraft=ui.segDraft||{}; ui.segDraft.height=el.getAttribute("data-h");
+    ui.segDraft.steps=""; render(); },
+  segfixB:function(el){ ui.segDraft=ui.segDraft||{}; ui.segDraft.height=el.getAttribute("data-h"); render(); },
+  shareMission:function(){ var k=M.currentWeek(), wp=M.weekProgress(S,k);
+    var p=wp.items.filter(function(x){return x.item.id===ui.missionId;})[0]; if(!p) return;
+    copyText("VERTEX 今週の遠征 "+M.weekLabel(k)+"\n"
+      +p.item.catLabel+" "+p.item.title+"\n"
+      +(p.item.unit==="m"?fmt(p.current):Math.round(p.current))+" / "+p.item.target+p.item.unit
+      +(p.done?" 達成":"")); },
+  shareRecap:function(){ var k=ui.recapWeek||M.prevWeek(M.currentWeek()), w=M.weekSummary(S,k);
+    var wp=M.weekProgress(S,k), t=D.lifetime(S), tier=D.tierOf(t);
+    copyText("VERTEX WEEKLY EXPEDITION "+M.weekLabel(k)+"\n"
+      +"獲得標高 "+fmt(w.m)+"m ／ "+w.days+"日 ／ "+w.spots+"ヶ所\n"
+      +"ミッション "+wp.done+"/"+wp.total+"\n"
+      +"現在地 "+tier.tier.name+" "+fmt(t)+" / "+tier.tier.m+"m"); },
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","del","base","clear","hide","show","delspot",
-          "mcat","resetmeta","dcat","rmseg","act"];
+var KEYS=["go","pick","spot","cat","per","bper","del","edit","mid","base","clear","hide","show",
+          "delspot","mcat","resetmeta","dcat","stairs","rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){
   for(var i=0;i<KEYS.length;i++){
     var el=closestData(ev.target,"data-"+KEYS[i]);
@@ -902,6 +1350,14 @@ function bind(){
     qa("[data-seg]").forEach(function(b){ b.onchange=function(){ ui.sel[b.dataset.seg]=b.checked; render(); }; });
     if($("reps")) $("reps").onchange=function(e){ ui.reps=Math.max(1,Number(e.target.value)||1); render(); };
     if($("rt")) $("rt").onchange=function(e){ ui.round=e.target.checked; render(); };
+    if($("rain")) $("rain").onchange=function(e){ ui.rain=e.target.checked; render(); };
+    if($("recDate")) $("recDate").onchange=function(e){
+      var v=e.target.value; ui.date=(v&&v<=D.today())?v:D.today(); render(); };
+    if($("eDate")) $("eDate").onchange=function(e){ ui.eDate=e.target.value||null; render(); };
+    if($("eReps")) $("eReps").onchange=function(e){ ui.eReps=Math.max(1,Number(e.target.value)||1); render(); };
+    if($("eRound")) $("eRound").onchange=function(e){ ui.eRound=e.target.checked; render(); };
+    if($("eRain")) $("eRain").onchange=function(e){ ui.eRain=e.target.checked; render(); };
+    if($("mDate")) $("mDate").onchange=function(e){ ui.mDate=e.target.value||D.today(); };
 
     if($("w")) $("w").onchange=function(e){ S.weight=Number(e.target.value)||60; save(); render(); };
     if($("bRise")) $("bRise").onchange=function(e){ var v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render(); };
@@ -924,6 +1380,9 @@ function bind(){
       D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));
       D.pruneOver(S); save(); render(); toast("保存しました"); }; });
     qa(".dIn").forEach(function(i){ i.onchange=function(e){ ui.draft[i.dataset.k]=e.target.value; render(); }; });
+    qa(".aIn").forEach(function(i){ i.onchange=function(e){
+      ui.segDraft=ui.segDraft||{label:"",layers:"",steps:"",rise:"",height:""};
+      ui.segDraft[i.dataset.k]=e.target.value; render(); }; });
     qa(".qIn").forEach(function(i){ i.onchange=function(e){
       ui.draft.segs[Number(i.dataset.i)][i.dataset.k]=e.target.value; render(); }; });
     if($("impF")) $("impF").onchange=function(e){
@@ -931,6 +1390,71 @@ function bind(){
   }catch(e){ showError(e); }
 }
 
+/* 区間を追加する。高さが決まらないものは追加しない。 */
+function addSegNow(){
+  var sp=D.spotOf(S,ui.editSpot); if(!sp) return;
+  var d=ui.segDraft||{};
+  var st=num(d.steps), ri=num(d.rise), he=num(d.height), la=num(d.layers);
+  var f=D.floorHFor(S,sp);
+  var h=he || (st&&ri? st*ri/1000 : 0) || (la? la*f.v : 0);
+  if(!(h>0)) return toast("高さが決まりません。段数と蹴上げ、高さ、層数のいずれかを入れてください。","error");
+  var known=!!(he||(st&&ri));
+  var g=D.addSeg(S,sp.id,{label:(d.label||"").trim(),layers:la||1,
+    height:h, src:known?"confirmed":"estimate"});
+  if(!known){ var o=D.ovW(S,sp.id);
+    o.extraSegs[o.extraSegs.length-1].src="estimate"; }
+  if(st) D.segOvW(S,sp.id,g.id).steps=st;
+  if(ri) D.segOvW(S,sp.id,g.id).rise=ri/1000;
+  D.pruneOver(S); save(); ui.segDraft=null; render();
+  toast("「"+g.label+"」を追加しました");
+}
+function copyText(t){
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){ toast("コピーしました"); },
+        function(){ fallbackCopy(t); });
+    } else fallbackCopy(t);
+  }catch(e){ fallbackCopy(t); }
+}
+function fallbackCopy(t){
+  try{
+    var ta=document.createElement("textarea");
+    ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+    toast("コピーしました");
+  }catch(e){ toast("コピーできませんでした。","error"); }
+}
+function curEntry(){
+  return S.entries.filter(function(x){ return String(x.id)===String(ui.editEntry); })[0];
+}
+function saveEdit(){
+  var e=curEntry(); if(!e) return;
+  var d=ui.eDate||e.date;
+  if(d>D.today()) return toast("未来の日付は記録できません。","error");
+  e.date=d;
+  e.reps=Number(ui.eReps||e.reps);
+  e.round=(ui.eRound==null?e.round:ui.eRound);
+  var rain=(ui.eRain==null?(e.cond&&e.cond.rain):ui.eRain);
+  e.cond=rain?{rain:true}:undefined;
+  e.meters=e.unitM*e.reps;
+  var w=e.weightAtSave||S.weight;
+  e.kcal=D.kcalRaw(e.meters,w,e.round);
+  if(e.steps!=null&&e.unitM>0) e.steps=Math.round(e.steps/ (e.meters/e.unitM===0?1:1) );
+  var sp=D.spotOf(S,e.spotId);
+  if(sp){ var gs=sp.segs.filter(function(g){ return (e.segIds||[]).indexOf(g.id)>=0; });
+    if(gs.length) e.steps=Math.round(D.stepsForSegs(S,sp,gs)*e.reps); }
+  S.entries.sort(function(a,b){ return b.id-a.id; });
+  D.recomputeSummits(S); M.ensure(S); D.syncAchievements(S); save();
+  ui.screen="history"; render(); toast("更新しました");
+}
+function saveMeasure(){
+  var d=($("mDate")&&$("mDate").value)||D.today();
+  var w=num($("mW")&&$("mW").value), a=num($("mA")&&$("mA").value);
+  if(w==null&&a==null) return toast("体重かウエストを入れてください。","error");
+  if(w!=null&&(w<20||w>300)) return toast("体重の値を確認してください。","error");
+  if(a!=null&&(a<30||a>250)) return toast("ウエストの値を確認してください。","error");
+  D.addMeasure(S,d,w,a); save(); ui.mDate=null; render(); toast("記録しました");
+}
 function toggleTheme(){
   S.settings.theme=(S.settings.theme==="light")?"dark":"light"; save(); render();
 }
