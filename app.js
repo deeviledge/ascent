@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.11";
+var BUILD="2026-08-17.12";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -10,7 +10,7 @@ var S={schemaVersion:4,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
 var ui={screen:"home",tab:"home",cat:"mall",spotId:null,sel:{},reps:1,round:true,
-  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live"};
+  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn"};
 
 /* ===== サブタブ =====
    分析と探索は中身が多い。以前は画面の最下部のボタンから奥へ潜る構造だったが、
@@ -774,65 +774,92 @@ function vEnergy(){
     + '<div class="note" style="margin-bottom:0">現地で段数や高さを測るほど、実測の割合が増えます。</div></div>';
 }
 
-/* ===== 予測（積み上げの延長） ===== */
-function vForecast(){
+/* ===== 予測（積み上げの延長） =====
+   シミュレーターなので、スライダーを動かした結果がその場で見えないと意味がない。
+   以前は結果4枚が縦に並び、上のスライダーを動かしても結果は画面外だった。
+   ペース操作＋結果を1画面に収め、結果はチップで切り替える。
+   ドラッグ中は render() を呼ばない（input 要素ごと作り直すとドラッグが切れる）。
+   代わりに #fcOut だけを差し替える。 */
+var FCVIEWS=[["mtn","山の到達"],["stack","積み上げ"],["goal","目標逆算"],["cmp","ペース比較"]];
+function fcPace(){
   var base=ui.paceBase||"w4";
-  var auto={ w4:D.paceFrom(S,4), w12:D.paceFrom(S,12), best:D.bestMonthPace(S) }[base];
-  var pace=(base==="manual")?(ui.pace||250):Math.round(auto);
-  if(ui.pace!=null&&base==="manual") pace=ui.pace;
-  var eta=D.mountainETA(S,pace);
-  var next=eta.filter(function(x){ return !x.done; }).slice(0,4);
+  if(base==="manual") return Number(ui.pace!=null?ui.pace:250);
+  return Math.round({ w4:D.paceFrom(S,4), w12:D.paceFrom(S,12), best:D.bestMonthPace(S) }[base]);
+}
+/* 結果部分だけを組み立てる。スライダーの oninput からも呼ぶ。 */
+function forecastOut(){
+  var pace=fcPace(), v=ui.fcView||"mtn";
   var P=function(d){ return D.project(S,pace,d); };
-  var rows=[[90,"3ヶ月"],[182,"6ヶ月"],[365,"1年"],[1095,"3年"]];
-  var TG=[[500,"500g"],[1000,"1kg"],[2000,"2kg"],[5000,"5kg"]];
+  var y=P(365);
+
+  /* ドラッグ中でも必ず1つは数字が動くよう、先頭に1年後の要約を置く */
+  var head='<div class="card"><h3>1年後（このペース）</h3><div class="stats">'
+    + '<div><div class="k">獲得標高</div><div class="v num">'+Math.round(y.m).toLocaleString()+'<i>m</i></div></div>'
+    + '<div><div class="k">脂肪換算</div><div class="v num amb">'
+    + (y.g>=1000?(Math.round(y.g/100)/10)+'<i>kg</i>':Math.round(y.g)+'<i>g</i>')+'</div></div>'
+    + '</div></div>';
+
+  if(v==="mtn"){
+    var next=D.mountainETA(S,pace).filter(function(x){ return !x.done; }).slice(0,4);
+    return head+'<div class="card"><h3>山の到達予測</h3>'
+      + (pace>0? next.map(function(x){
+          return '<div class="bl"><span class="nm">'+esc(x.name)+'</span>'
+            + '<span class="ct num" style="width:auto;color:var(--orange);font-weight:700">'+x.date.replace(/-/g,"/")+'</span></div>'
+            + '<div class="note" style="margin:0 0 9px">あと '+fmt(x.remain)+'m ・ '+x.days.toLocaleString()+'日</div>'; }).join("")
+          : '<div class="note" style="margin:0">ペースを1以上にすると予測が出ます。</div>')
+      + (next.length===0?'<div class="note" style="margin:0">全6座を制覇しています。</div>':'')+'</div>';
+  }
+  if(v==="stack"){
+    var rows=[[90,"3ヶ月"],[182,"6ヶ月"],[365,"1年"],[1095,"3年"]];
+    return head+'<div class="card"><h3>このペースで続けた場合</h3>'
+      + '<div class="fcast"><div class="hd3"><span></span>'+rows.map(function(r){return '<span>'+r[1]+'</span>';}).join("")+'</div>'
+      + [["m","標高","m"],["kcal","エネルギー","kcal"],["g","脂肪換算","g"]].map(function(mm){
+          return '<div class="rw"><span class="d">'+mm[1]+'</span>'
+            + rows.map(function(r){ var val=P(r[0])[mm[0]];
+                return '<span class="v num">'+(mm[0]==="g"&&val>=1000?(Math.round(val/100)/10)+"kg":Math.round(val).toLocaleString())+'</span>'; }).join("")
+            + '</div>'; }).join("")
+      + '</div>'
+      + '<div class="note" style="margin-bottom:0">体重'+S.weight+'kg、往復の割合は直近の実績（'
+      + Math.round(D.roundRatio(S)*100)+'%）を使用。脂肪換算は 7,200kcal/kg の理論値で、'
+      + '実際の体重の増減を示すものではありません。</div></div>';
+  }
+  if(v==="goal"){
+    var TG=[[500,"500g"],[1000,"1kg"],[2000,"2kg"],[5000,"5kg"]];
+    return head+'<div class="card"><h3>目標までの逆算</h3>'
+      + TG.map(function(t){
+          var w=D.weeksToFat(S,pace,t[0]);
+          if(w===null) return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span><b>—</b></div>';
+          if(w===0) return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span><b style="color:var(--green)">到達済み</b></div>';
+          var dt=new Date(); dt.setDate(dt.getDate()+Math.ceil(w*7));
+          return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span>'
+            + '<b class="num">'+D.ymd(dt).replace(/-/g,"/")+'（'+Math.ceil(w)+'週）</b></div>'; }).join("")
+      + '<div class="note" style="margin-bottom:0">ペースを上げると、この日付が前に動きます。</div></div>';
+  }
   var tbl=[50,150,250,500,1000];
-
-  return '<div class="card"><h3>ペース</h3>'
-    + '<div class="mini">'+[["w4","直近4週"],["w12","直近12週"],["best","最高の月"],["manual","手動"]].map(function(x){
-        return '<button data-pacebase="'+x[0]+'" class="'+(base===x[0]?"on":"")+'">'+x[1]+'</button>'; }).join("")+'</div>'
-    + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+pace.toLocaleString()+'<i>m / 週</i></span></div>'
-    + '<input id="paceRange" type="range" min="0" max="1500" step="10" value="'+pace+'">'
-    + '<div class="note" style="margin-bottom:0">スライダーを動かすと、以下すべてが変わります。'
-    + (base!=="manual"?'（動かすと手動に切り替わります）':'')+'</div></div>'
-
-    + '<div class="card"><h3>山の到達予測</h3>'
-    + (pace>0? next.map(function(x){
-        return '<div class="bl"><span class="nm">'+esc(x.name)+'</span>'
-          + '<span class="ct num" style="width:auto;color:var(--orange);font-weight:700">'+x.date.replace(/-/g,"/")+'</span></div>'
-          + '<div class="note" style="margin:0 0 9px">あと '+fmt(x.remain)+'m ・ '+x.days.toLocaleString()+'日</div>'; }).join("")
-        : '<div class="note" style="margin:0">ペースを1以上にすると予測が出ます。</div>')
-    + (next.length===0?'<div class="note" style="margin:0">全6座を制覇しています。</div>':'')+'</div>'
-
-    + '<div class="card"><h3>このペースで続けた場合</h3>'
-    + '<div class="fcast"><div class="hd3"><span></span>'+rows.map(function(r){return '<span>'+r[1]+'</span>';}).join("")+'</div>'
-    + [["m","標高","m"],["kcal","エネルギー","kcal"],["g","脂肪換算","g"]].map(function(mm){
-        return '<div class="rw"><span class="d">'+mm[1]+'</span>'
-          + rows.map(function(r){ var v=P(r[0])[mm[0]];
-              return '<span class="v num">'+(mm[0]==="g"&&v>=1000?(Math.round(v/100)/10)+"kg":Math.round(v).toLocaleString())+'</span>'; }).join("")
-          + '</div>'; }).join("")
-    + '</div>'
-    + '<div class="note" style="margin-bottom:0">体重'+S.weight+'kg、往復の割合は直近の実績（'
-    + Math.round(D.roundRatio(S)*100)+'%）を使用。脂肪換算は 7,200kcal/kg の理論値で、'
-    + '実際の体重の増減を示すものではありません。</div></div>'
-
-    + '<div class="card"><h3>目標までの逆算</h3>'
-    + TG.map(function(t){
-        var w=D.weeksToFat(S,pace,t[0]);
-        if(w===null) return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span><b>—</b></div>';
-        if(w===0) return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span><b style="color:var(--green)">到達済み</b></div>';
-        var dt=new Date(); dt.setDate(dt.getDate()+Math.ceil(w*7));
-        return '<div class="vrow"><span>脂肪換算 '+t[1]+'</span>'
-          + '<b class="num">'+D.ymd(dt).replace(/-/g,"/")+'（'+Math.ceil(w)+'週）</b></div>'; }).join("")
-    + '</div>'
-
-    + '<div class="card"><h3>ペース別の1年</h3>'
+  return head+'<div class="card"><h3>ペース別の1年</h3>'
     + tbl.map(function(w){ var p=D.project(S,w,365);
         var here=Math.abs(w-pace)<=Math.min(75,pace*0.15);
         return '<div class="bl'+(here?" hi":"")+'"><span class="nm num">週 '+w.toLocaleString()+'m</span>'
           + '<span class="ct num" style="width:auto">'+Math.round(p.m).toLocaleString()+'m ・ '
           + Math.round(p.kcal).toLocaleString()+'kcal ・ '
           + (p.g>=1000?(Math.round(p.g/100)/10)+'kg':Math.round(p.g)+'g')+'</span></div>'; }).join("")
-    + '<div class="note" style="margin-bottom:0">いまのペースに近い行を強調しています。</div></div>'
+    + '<div class="note" style="margin-bottom:0">いまのペースに近い行を強調しています。</div></div>';
+}
+function vForecast(){
+  var base=ui.paceBase||"w4", pace=fcPace(), v=ui.fcView||"mtn";
+  return '<div class="card pacer"><h3>ペース</h3>'
+    + '<div class="mini">'+[["w4","直近4週"],["w12","直近12週"],["best","最高の月"],["manual","手動"]].map(function(x){
+        return '<button data-pacebase="'+x[0]+'" class="'+(base===x[0]?"on":"")+'">'+x[1]+'</button>'; }).join("")+'</div>'
+    + '<div class="eqline"><span class="num v" id="paceVal" style="font-size:var(--f-hero)">'
+    + pace.toLocaleString()+'<i>m / 週</i></span></div>'
+    + '<input id="paceRange" type="range" min="0" max="1500" step="10" value="'+pace+'">'
+    + '<div class="note" style="margin-bottom:0">動かすと下の結果がその場で変わります。'
+    + (base!=="manual"?'（動かすと手動に切り替わります）':'')+'</div></div>'
+
+    + '<div class="chips">'+FCVIEWS.map(function(x){
+        return '<button class="chip '+(v===x[0]?"on":"")+'" data-fcv="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
+
+    + '<div id="fcOut" style="margin-top:var(--s3)">'+forecastOut()+'</div>'
 
     + '<div class="note">この予測は、登った実績をそのまま延長した計算です。'
     + '食事などの摂取側は含んでいないため、体重や体型の変化を予測するものではありません。</div>';
@@ -1544,6 +1571,7 @@ var ACTIONS={
   metric:function(v){ ui.metric=v; render(); },
   breakby:function(v){ ui.breakBy=v; render(); },
   cfil:function(v){ ui.cFilter=v; render(); },
+  fcv:function(v){ ui.fcView=v; render(); },
   pacebase:function(v){ ui.paceBase=v; if(v!=="manual") ui.pace=null; render(); },
   delm:function(v){ D.removeMeasure(S,v); save(); render(); toast("削除しました"); },
   stairs:function(v){ D.setStairs(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("保存しました"); },
@@ -1603,7 +1631,7 @@ var ACTS={
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","pacebase","del","delm",
+var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
           "rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){
@@ -1673,10 +1701,21 @@ function bind(){
     if($("eRain")) $("eRain").onchange=function(e){ ui.eRain=e.target.checked; render(); };
     if($("mDate")) $("mDate").onchange=function(e){ ui.mDate=e.target.value||D.today(); };
     if($("paceRange")){
-      var pr=$("paceRange");
-      pr.oninput=function(e){ ui.pace=Number(e.target.value); ui.paceBase="manual";
-        var lab=document.querySelector(".card .eqline .v");
-        if(lab) lab.innerHTML=ui.pace.toLocaleString()+'<i>m / 週</i>'; };
+      var pr=$("paceRange"), raf=0;
+      /* ドラッグ中に render() すると input 自体が作り直されてドラッグが切れる。
+         数値ラベルと結果ブロックだけを差し替える。 */
+      var live=function(){
+        raf=0;
+        var lab=$("paceVal");
+        if(lab) lab.innerHTML=Number(ui.pace).toLocaleString()+'<i>m / 週</i>';
+        var out=$("fcOut");
+        if(out){ try{ out.innerHTML=forecastOut(); }catch(e){ showError(e); } }
+      };
+      pr.oninput=function(e){
+        ui.pace=Number(e.target.value); ui.paceBase="manual";
+        if(!raf) raf=requestAnimationFrame(live);
+      };
+      /* 離したときだけ全体を描き直し、プリセットの選択状態を「手動」に合わせる */
       pr.onchange=function(e){ ui.pace=Number(e.target.value); ui.paceBase="manual"; render(); };
     }
 
