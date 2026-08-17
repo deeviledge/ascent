@@ -121,19 +121,67 @@ function profile(t,fmtM){
     grid+='<line x1="'+X(i)+'" y1="'+TOP+'" x2="'+X(i)+'" y2="'+BASE+'" stroke="var(--hairline)" stroke-width="1"/>'
        +  '<text x="'+X(i)+'" y="'+(BASE+17)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+(i/1000)+',000m</text>';
   }
-  // 名前が重ならないよう、近い峰は段を上げてずらす
-  var lastX=-999, level=0;
-  var peaks=R.map(function(r){
-    var x=X(r.m), y=peakY(r.m), done=t>=r.m;
-    if(x-lastX<58){ level=(level+1)%3; } else { level=0; }
-    lastX=x;
-    var ty=y-25-level*30;
-    return '<g><circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+(done?"var(--green)":"var(--muted)")+'"/>'
-      + (level?'<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>':'')
-      + '<text x="'+x+'" y="'+ty+'" fill="'+(done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+r.name+'</text>'
-      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+r.m.toLocaleString()+' m'+(done?" 登頂":"")+'</text></g>';
+  /* 名前が重ならないよう段を上げてずらす。
+     旧実装は段を3段でループし、比較相手も直前の1個だけで、文字幅も見ていなかった。
+     そのため密集地帯では3個ごとに必ず同じ段へ戻り、確実に再衝突していた。
+     ここでは文字幅を見積もり、段ごとに「使用済みの右端」を持って左から詰める。
+     どの段にも入らないものはラベルを出さず、点だけ残す（名前は下の一覧で読める）。 */
+  var LV_H=26, MAXLV=7, GAP=9;
+  function textW(s,fs){
+    var w=0;
+    for(var i=0;i<s.length;i++){
+      /* 和文は全角、ASCII・記号は半角として概算する */
+      w += (s.charCodeAt(i)<0x2000) ? fs*0.55 : fs;
+    }
+    return w;
+  }
+  /* ラベルは「絶対位置の行」に載せる。
+     頂上からの相対で段を積むと、山の高さが違えば同じ段でも絶対位置がずれ、
+     逆に別の段どうしが同じ高さに来て重なる。行を絶対座標で固定すれば、
+     同じ行のラベルは必ず同じ y になり、行ごとの区間判定だけで衝突を防げる。
+     現在地（次の目標）と直前に登った座は最優先で場所を確保する。
+     旗が指している座の名前が消えるのがいちばん困るため。 */
+  function rowY(n){ return BASE-25-n*LV_H; }
+  var lv0=R.filter(function(r){ return r.m>t; })[0];
+  var lvDone=null;
+  R.forEach(function(r){ if(r.m<=t) lvDone=r; });
+  var items=R.map(function(r,i){
+    var done=t>=r.m, sub=r.m.toLocaleString()+' m'+(done?" 登頂":"");
+    return { r:r, i:i, x:X(r.m), y:peakY(r.m), done:done, sub:sub,
+             w:Math.max(textW(r.name,12), textW(sub,10.5)) };
+  });
+  var order=items.slice().sort(function(p,q){
+    var pp=(p.r===lv0?0:p.r===lvDone?1:2), qq=(q.r===lv0?0:q.r===lvDone?1:2);
+    return pp-qq || p.i-q.i;
+  });
+  var occ={}, minTy=1e9, dropped=0, rowOf={};
+  order.forEach(function(it){
+    var L=it.x-it.w/2, Rt=it.x+it.w/2;
+    var n0=Math.ceil((BASE-it.y)/LV_H), n=-1;
+    for(var k=0;k<MAXLV;k++){
+      var cand=n0+k;
+      occ[cand]=occ[cand]||[];
+      var hit=occ[cand].some(function(s){ return L < s[1]+GAP && s[0]-GAP < Rt; });
+      if(!hit){ n=cand; break; }
+    }
+    if(n<0){ dropped++; rowOf[it.i]=null; return; }
+    occ[n].push([L,Rt]);
+    rowOf[it.i]=n;
+    if(rowY(n)<minTy) minTy=rowY(n);
+  });
+  var peaks=items.map(function(it){
+    var x=it.x, y=it.y, n=rowOf[it.i];
+    var dot='<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+(it.done?"var(--green)":"var(--muted)")+'"/>';
+    if(n==null) return '<g>'+dot+'</g>';
+    var ty=rowY(n);
+    return '<g>'+dot
+      + (ty<y-11?'<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>':'')
+      + '<text x="'+x+'" y="'+ty+'" fill="'+(it.done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+it.r.name+'</text>'
+      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+it.sub+'</text></g>';
   }).join("");
-  return '<svg class="prof" width="'+W+'" height="'+(H+22)+'" viewBox="0 0 '+W+' '+(H+22)+'">'
+  /* 段を積んだぶん上にはみ出すので、その分だけ viewBox を上へ広げる */
+  var VT=Math.min(0, minTy-14), VH=H+22-VT;
+  return '<svg class="prof" width="'+W+'" height="'+VH+'" viewBox="0 '+VT+' '+W+' '+VH+'">'
     + '<defs><clipPath id="pdone"><rect x="0" y="0" width="'+fx+'" height="'+H+'"/></clipPath>'
     + '<linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">'
     + '<stop stop-color="var(--orange)" stop-opacity=".42"/><stop offset="1" stop-color="var(--orange)" stop-opacity="0"/></linearGradient></defs>'
