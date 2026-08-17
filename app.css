@@ -470,3 +470,16 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 .hero .sub small{display:block;font-size:var(--f-2xs);opacity:.7;margin-top:2px;}
 #fx .fxin.sm .ttl{color:var(--green);letter-spacing:.34em;}
 #fx .fxin.sm .cat{color:var(--muted);letter-spacing:.06em;font-weight:600;}
+
+/* ---- 全行程の全座一覧 ----
+   断面図は密集地帯でラベルを出しきれないため、名前はここで必ず読めるようにする。 */
+.rlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 10px;}
+.rlist>div{display:flex;align-items:baseline;gap:6px;padding:5px 0;
+  border-bottom:var(--hair) solid var(--hairline);color:var(--muted);min-width:0;}
+.rlist .ix{font-size:var(--f-2xs);color:var(--muted);flex:0 0 20px;text-align:right;}
+.rlist .nm{flex:1;min-width:0;font-size:var(--f-xs);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.rlist .mm{font-size:var(--f-2xs);flex:0 0 auto;}
+.rlist>.done{color:var(--green);}
+.rlist>.cur{color:var(--orange);font-weight:700;}
+.rlist>.cur .ix,.rlist>.cur .mm{color:var(--orange);}

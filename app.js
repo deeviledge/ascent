@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.13";
+var BUILD="2026-08-17.14";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -418,6 +418,17 @@ function vMountains(){
     + '横の距離が実際の獲得標高に対応します。</div></div>'
 
     + '<div class="card"><h3>生涯累計 — 6座</h3>'+mountainRows(t)+'</div>'
+
+    /* 断面図は密集地帯でラベルを出しきれない（173〜381mは62px幅に12座）。
+       名前がこの画面にしか無いので、全座を一覧でも読めるようにする。 */
+    + '<div class="card"><h3>全'+D.RANKS.length+'座</h3><div class="rlist">'
+    + D.RANKS.map(function(r,i){
+        var done=t>=r.m, cur=(!done && D.RANKS.filter(function(x){return x.m>t;})[0]===r);
+        return '<div class="'+(done?"done":cur?"cur":"")+'">'
+          + '<span class="ix num">'+(i+1)+'</span>'
+          + '<span class="nm">'+esc(r.name)+'</span>'
+          + '<span class="mm num">'+r.m.toLocaleString()+'m</span></div>'; }).join("")
+    + '</div><div class="note" style="margin-bottom:0">緑が登頂済み、オレンジが現在の目標です。</div></div>'
     + '<div class="card"><h3>この期間で登った山</h3>'
     + '<div class="chips">'+PERIODS.map(function(x){
         return '<button class="chip '+(ui.period===x[0]?"on":"")+'" data-per="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
