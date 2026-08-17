@@ -427,7 +427,12 @@ button.ms{display:flex;width:100%;text-align:left;}
 /* ---- コンプリート ---- */
 .cmp{border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);
   padding:var(--s3);margin-bottom:var(--s2);text-align:left;width:100%;background:var(--surface-2);}
-.cmp.done{border-color:var(--green);}
+/* 達成したら一目で分かるよう、枠色だけでなく面ごと変える */
+.cmp.done{border-color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--surface-2));}
+.cmp .ck{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
+  background:var(--green);color:var(--ink-0);font-size:10px;font-weight:700;margin-right:5px;
+  vertical-align:-2px;}
+.cmp .ov{color:var(--green);}
 .cmp .hd2{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);margin-bottom:7px;}
 .cmp .nm{font-size:var(--f-sm);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cmp .pc{font-size:var(--f-md);font-weight:700;color:var(--orange);flex:0 0 auto;}
@@ -440,6 +445,13 @@ button.ms{display:flex;width:100%;text-align:left;}
 .cd .cbar{display:block;height:3px;border-radius:2px;background:var(--ink-2);overflow:hidden;margin-top:3px;}
 .cd .cbar i{display:block;height:100%;background:var(--orange);}
 .cd .ft.ok{color:var(--green);font-weight:700;}
+/* 地点カードも、コンプリートしたら面と枠で分かるようにする */
+.cd.cmpl{background:color-mix(in srgb,var(--green) 11%,var(--surface));
+  box-shadow:inset 0 0 0 1px var(--green);}
+.cd.cmpl .cbar i{background:var(--green);}
+.cd .cmpb{position:absolute;right:6px;top:6px;width:15px;height:15px;border-radius:50%;
+  background:var(--green);color:var(--ink-0);font-size:10px;font-weight:700;
+  display:grid;place-items:center;}
 
 /* ---- エネルギー分析 ---- */
 .mtx,.fcast{display:grid;gap:3px;}
