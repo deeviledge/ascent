@@ -558,3 +558,6 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
   background:color-mix(in srgb,var(--green) 8%,var(--surface));}
 .dch.done .pb i{background:var(--green);}
 .dch.done .tg{color:var(--green);border-color:var(--green);}
+
+/* ---- 今日の塔 ---- */
+svg.twr{display:block;margin:var(--s3) auto 0;}

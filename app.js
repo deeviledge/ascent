@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.3";
+var BUILD="2026-08-18.5";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -334,7 +334,8 @@ function todayCard(){
   return '<div class="card"><h3>今日</h3>'
     + '<div class="today">'
     +   '<div class="t-main"><span class="v num">'+fmt(t.m)+'<i>m</i></span>'
-    +     '<span class="k">'+(t.n?t.n+'本 記録':'まだ記録なし')+'</span></div>'
+    +     '<span class="k">'+(function(){ var r=D.reachedRank(t.m);
+            return r? esc(r.name)+' まで' : (t.n?t.n+'本 記録':'まだ記録なし'); })()+'</span></div>'
     +   '<div class="t-sub"><div><span class="k">消費エネルギー</span>'
     +     '<span class="v num">'+t.kcal.toLocaleString()+'<i>kcal</i></span></div>'
     +     '<div><span class="k">のぼった段数</span>'
@@ -1022,8 +1023,8 @@ function vEdit(){
 /* ===== S3 分析 ===== */
 /* ===== 日別の到達 =====
    累計（全行程）とは別軸。その日の合計mが66座のどこまで届いたかを見る。
-   目盛りは D.DAY_CAP(600m)で固定する。1日に登れるのは実用上そこまでで、
-   固定しておくと日どうしを同じ物差しで比べられる。 */
+   目盛りは D.DAY_CAP で固定する。可変にすると期間ごとにバーの高さの意味が
+   変わってしまうため、固定して日どうしを比べられるようにする。 */
 function dailyChart(rows){
   var W=340, H=210, padL=8, padR=80, padT=10, padB=20;
   var cap=D.DAY_CAP, plotH=H-padT-padB, plotW=W-padL-padR;
@@ -1056,6 +1057,61 @@ function dailyChart(rows){
     + rows[rows.length-1].date.slice(5).replace("-","/")+'</text>'
     + '</svg>';
 }
+/* 1日ぶんの高さを塔として描く。
+   累計は「山」で見えているのに、1日ぶんは数字と棒しかなく高さとして掴めなかった。
+   累計＝山、1日＝塔 と描き分けて、どちらも高さで見えるようにする。
+   目盛りの天井は次に届く座。つまり「あとどれだけで次に届くか」がそのまま見える。 */
+function towerGauge(m){
+  var W=340, H=300, padT=30, padB=30;
+  var rc=D.reachedRank(m), nx=D.nextRank(m);
+  var top=nx? nx.m : Math.max(m*1.08,(rc?rc.m:100)*1.08);
+  var plotH=H-padT-padB, baseY=padT+plotH;
+  var Y=function(v){ return padT+plotH-Math.min(v,top)/top*plotH; };
+  var x0=196, x1=262, fy=Y(m);
+
+  /* 範囲に入る座を目盛りにする。近すぎるものは上から順に間引く。 */
+  var keep=[], used=[];
+  D.RANKS.filter(function(r){ return r.m<=top; }).reverse().forEach(function(r){
+    var y=Y(r.m);
+    if(used.every(function(u){ return Math.abs(u-y)>=16; })){ used.push(y); keep.push(r); }
+  });
+  var ticks=keep.map(function(r){
+    var y=Y(r.m), done=(m>=r.m);
+    return '<line x1="150" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)
+      + '" stroke="'+(done?"var(--green)":"var(--hairline)")+'" stroke-width="1" stroke-dasharray="2 3"/>'
+      + '<text x="144" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="9.5" fill="'
+      + (done?"var(--green)":"var(--muted)")+'">'+esc(r.name.length>9?r.name.slice(0,9)+"…":r.name)+'</text>'
+      + '<text x="'+(x1+6)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--hairline-2)">'
+      + r.m.toLocaleString()+'m</text>'; }).join("");
+
+  /* 塔らしく見えるよう、床の線を等間隔で入れる */
+  var floors="";
+  for(var i=1;i<24;i++){
+    var fyy=padT+plotH*(i/24);
+    floors+='<line x1="'+x0+'" y1="'+fyy.toFixed(1)+'" x2="'+x1+'" y2="'+fyy.toFixed(1)
+      + '" stroke="var(--ink-0)" stroke-width="1" opacity=".5"/>';
+  }
+  return '<svg class="prof twr" viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'">'
+    + '<defs><linearGradient id="twrg" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop stop-color="var(--orange)"/><stop offset="1" stop-color="#B34A00"/></linearGradient></defs>'
+    + ticks
+    + '<rect x="'+x0+'" y="'+padT+'" width="'+(x1-x0)+'" height="'+plotH+'" fill="var(--ink-2)"'
+    + ' stroke="var(--hairline)" stroke-width="1"/>'
+    + (m>0?'<rect x="'+x0+'" y="'+fy.toFixed(1)+'" width="'+(x1-x0)+'" height="'+(baseY-fy).toFixed(1)
+        + '" fill="url(#twrg)"/>':'')
+    + floors
+    + '<rect x="'+x0+'" y="'+padT+'" width="'+(x1-x0)+'" height="'+plotH+'" fill="none"'
+    + ' stroke="var(--hairline-2)" stroke-width="1"/>'
+    /* 現在の高さの線と旗 */
+    /* 旗は塔の左側に置く。右に置くと、天井の座の高さラベルと重なって切れる。 */
+    + (m>0?'<line x1="'+(x0-26)+'" y1="'+fy.toFixed(1)+'" x2="'+(x1+1)+'" y2="'+fy.toFixed(1)
+        + '" stroke="var(--text)" stroke-width="2"/>'
+        + '<g transform="translate('+(x0-26)+' '+(fy-20).toFixed(1)+')">'
+        + '<path d="M0 0v20" stroke="var(--text)" stroke-width="2"/>'
+        + '<path d="M1 1h20l-6 6 6 6H1z" fill="var(--orange)"/></g>':'')
+    + '<text x="'+((x0+x1)/2)+'" y="'+(baseY+18)+'" text-anchor="middle" font-size="9.5" fill="var(--muted)">0m</text>'
+    + '</svg>';
+}
 var DOW=["日","月","火","水","木","金","土"];
 function vDaily(){
   var days=ui.dPeriod||30;
@@ -1067,7 +1123,18 @@ function vDaily(){
   return '<div class="chips">'+[[14,"14日"],[30,"30日"],[60,"60日"],[90,"90日"]].map(function(x){
       return '<button class="chip '+(days===x[0]?"on":"")+'" data-dper="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
 
-    + '<div class="card" style="margin-top:var(--s3)"><h3>自己ベストの1日</h3>'
+    + (function(){
+        var tm=D.dayStats(S,D.today()).m, rc=D.reachedRank(tm), nx=D.nextRank(tm);
+        return '<div class="card" style="margin-top:var(--s3)"><h3>今日の高さ</h3>'
+          + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(tm)+'<i>m</i></span>'
+          + '<span class="k">'+(rc?esc(rc.name)+' まで':'まだ最初の山に届いていません')+'</span></div>'
+          + towerGauge(tm)
+          + '<div class="note" style="margin-bottom:0">'
+          + (nx? '次は '+esc(nx.name)+'（'+nx.m.toLocaleString()+'m）まで あと '+fmt(nx.m-tm)+'m。'
+               : '今日ぶんだけで全座を超えました。')
+          + '累計とは別に、今日ぶんだけを塔にして見ています。</div></div>'; })()
+
+    + '<div class="card"><h3>自己ベストの1日</h3>'
     + (bd.date
         ? '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(bd.m)+'<i>m</i></span>'
           + '<span class="k">'+bd.date.slice(5).replace("-","/")+'（'+DOW[new Date(bd.date+"T00:00:00").getDay()]+'）</span></div>'
