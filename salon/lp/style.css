@@ -1,0 +1,94 @@
+:root {
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --ink: #23201d;
+  --muted: #6f6860;
+  --line: #e6e2dc;
+  --accent: #1f7a5a;
+  --accent-weak: #e7f2ed;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+  line-height: 1.85;
+}
+
+.hero {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 72px 20px 56px;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 0 0 16px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--accent-weak);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+h1 { margin: 0 0 20px; font-size: clamp(26px, 5vw, 40px); line-height: 1.45; }
+.lede { margin: 0 auto 28px; max-width: 620px; color: var(--muted); }
+
+.cta {
+  display: inline-block;
+  padding: 13px 34px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.cta:hover { filter: brightness(1.06); }
+
+.note { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+
+main { max-width: 760px; margin: 0 auto; padding: 0 20px 72px; }
+
+.section { padding: 40px 0; border-top: 1px solid var(--line); }
+.section h2 { margin: 0 0 24px; font-size: 20px; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.steps li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+}
+.steps h3 { margin: 0 0 6px; font-size: 16px; }
+.steps p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.price-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+}
+.price { margin: 0 0 20px; }
+.price strong { font-size: 46px; font-variant-numeric: tabular-nums; }
+.price span { color: var(--muted); font-size: 15px; }
+
+.checks { list-style: none; margin: 0 0 24px; padding: 0; text-align: left; display: inline-block; }
+.checks li { position: relative; padding-left: 26px; }
+.checks li::before { content: '✓'; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
+
+.faq { margin: 0; }
+.faq dt { font-weight: 600; margin-top: 20px; }
+.faq dd { margin: 4px 0 0; color: var(--muted); }
+
+.footer {
+  border-top: 1px solid var(--line);
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}

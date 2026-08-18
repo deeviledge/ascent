@@ -1,0 +1,6 @@
+# ローカル開発用。`wrangler dev` が読み込む。git にはコミットしない。
+ANTHROPIC_API_KEY="sk-ant-..."
+# openssl rand -base64 32
+ENC_KEY="base64で32バイトの鍵"
+# openssl rand -base64 32
+AUTH_SECRET="任意の長いランダム文字列"

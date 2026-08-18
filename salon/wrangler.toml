@@ -1,0 +1,31 @@
+name = "salon-line-concierge"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 無料枠（1日10万リクエスト）で運用する前提。
+# Observability は無料枠でも有効にできるので入れておく。
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "salon"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+[vars]
+# AI の既定モデル。コストを抑えるため軽量モデルを既定にする。
+AI_MODEL = "claude-haiku-4-5"
+# 1テナントあたりの月間 AI 応答上限の既定値（テナント個別に上書き可）。
+DEFAULT_AI_QUOTA = "300"
+# 管理画面 / LP のオリジン（CORS 許可先）。カンマ区切り。
+ALLOWED_ORIGINS = "http://localhost:5173"
+
+# 以下は `wrangler secret put <NAME>` で登録する（wrangler.toml には書かない）
+#   ANTHROPIC_API_KEY : Anthropic API キー
+#   ENC_KEY           : テナントの LINE トークン暗号化用キー（base64 32byte）
+#   AUTH_SECRET       : 管理画面セッション署名用シークレット
+
+# 冪等化テーブルの掃除（毎日 3:00 JST = 18:00 UTC）
+[triggers]
+crons = ["0 18 * * *"]
