@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.1";
+var BUILD="2026-08-18.2";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -1464,7 +1464,11 @@ function vSettings(){
     + '<div class="fr"><label>「直前と同じ」バーを表示</label>'
     + '<input type="checkbox" id="repBar" '+(S.settings.repeatBar===false?"":"checked")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
     + '<div class="note">オフにすると、ホームと探索の下に出るバーが消えます。'
-    + 'バーの × を押した場合は、次に開いたときにまた出ます。</div></div>'
+    + 'バーの × を押した場合は、次に開いたときにまた出ます。</div>'
+    + '<div class="fr"><label>達成の演出を出す</label>'
+    + '<input type="checkbox" id="fxOn" '+(S.settings.fx==="off"?"":"checked")+' style="width:20px;height:20px;accent-color:var(--orange)"></div>'
+    + '<div class="note">山をひとつ登りきったときと、1日の自己ベストを更新したときに全画面で出ます。'
+    + 'オフにすると、同じ内容をトーストで短く出すだけになります。</div></div>'
 
     + '<div class="card"><h3>バージョン</h3>'
     + '<div class="vrow"><span>ビルド</span><b class="num">'+BUILD+'</b></div>'
@@ -1564,28 +1568,73 @@ function commit(){
 
 /* 同時に複数起きたときは、優先順位の一番高いものだけを演出する。
    SUMMIT > MISSION > ACHIEVEMENT > ENTRY */
+/* 跨いだ座を高い順に並べる。RANKS の並び（低い順）に依存せず高さで判断する。 */
+function summitsByHeight(events){
+  return events.filter(function(x){return x.type==="SUMMIT_COMPLETED";})
+    .map(function(x){ return {name:x.name, id:x.id,
+      rank:D.RANKS.filter(function(r){return r.id===x.id;})[0]||{m:0}}; })
+    .sort(function(a,b){ return (b.rank.m||0)-(a.rank.m||0); });
+}
+function highestSummit(events){ return summitsByHeight(events)[0]||{name:""}; }
 function presentEvents(events,entry){
   var top=D.topEvent(events);
   var missions=events.filter(function(x){return x.type==="MISSION_COMPLETED";});
   var achs=events.filter(function(x){return x.type==="ACHIEVEMENT_UNLOCKED";});
+  var daily=events.filter(function(x){return x.type==="DAILY_RANK_REACHED";})[0];
   var extra=[];
   if(missions.length) extra.push("ミッション"+missions.length+"件");
   if(achs.length) extra.push("実績"+achs.length+"件");
+  if(daily) extra.push("今日は "+daily.name+" まで");
+
+  /* 演出を切っている場合は、内容をトーストにまとめて済ませる */
+  if(S.settings.fx==="off"){
+    var head=(top&&top.type==="SUMMIT_COMPLETED")
+      ? highestSummit(events).name+" 登頂"
+      : (top&&top.type==="DAILY_BEST") ? "自己ベスト更新"
+      : fmt(entry.meters)+"m 記録しました";
+    toast(head+(extra.length?"（"+extra.join(" ・ ")+"）":""),
+      (top&&top.priority>=4)?"summit":null,
+      {label:"取り消す",fn:function(){ undoEntry(entry); }});
+    return;
+  }
 
   if(!top||top.type==="ENTRY_RECORDED"){
-    toast(fmt(entry.meters)+"m 記録しました",null,{label:"取り消す",fn:function(){ undoEntry(entry); }});
+    /* 累計の到達はないが、今日ぶんが山に届いた場合はトーストで軽く伝える */
+    toast(daily? ("今日は "+daily.name+" まで登りました")
+               : (fmt(entry.meters)+"m 記録しました"),
+      daily?"summit":null, {label:"取り消す",fn:function(){ undoEntry(entry); }});
     return;
   }
   if(top.type==="SUMMIT_COMPLETED"){
-    // 登頂はこのアプリの主役なので、いちばん大きい演出を当てる
-    var r=D.RANKS.filter(function(x){return x.id===top.id;})[0]||{};
-    ui.fx={kind:"summit", title:top.name, sub:(r.m?r.m.toLocaleString()+" m":"")+(r.note?" ・ "+r.note:""),
+    /* 一度に複数の座を跨ぐことがある（600m入れると23座跨ぐ）。
+       topEvent は同順位の先頭＝いちばん低い座を返すため、そのままだと
+       いちばんしょぼい1座だけ出て残りが消える。高い順に並べ、最高を主役にする。 */
+    var all=summitsByHeight(events);
+    var r=all[0].rank||{};
+    ui.fx={kind:"summit", title:all[0].name,
+           sub:(r.m?r.m.toLocaleString()+" m":"")+(r.note?" ・ "+r.note:""),
            from:events[0].from, to:events[0].to,
-           note:extra.length?extra.join(" ・ ")+" 達成":""};
+           list:all.slice(1).map(function(x){return x.name;}),
+           note:extra.length?extra.join(" ・ "):""};
+    playFx(); return;
+  }
+  if(top.type==="DAILY_BEST"){
+    ui.fx={kind:"best", title:(top.name?top.name+" まで":fmt(top.m)+"m"),
+           sub:"1日の自己ベスト", from:top.prev, to:top.m,
+           list:[], note:extra.filter(function(s){return s.indexOf("今日は")!==0;}).join(" ・ ")};
     playFx(); return;
   }
   if(top.type==="MISSION_COMPLETED"){
-    ui.fx={kind:"mission", items:missions.map(function(x){return x.item;}).filter(Boolean),
+    var items=missions.map(function(x){return x.item;}).filter(Boolean);
+    /* 過去日に記録すると、いまの週の一覧にないミッションが完了することがある。
+       その場合 item を引けず items が空になる。以前はここで fx.items[0] を
+       参照して落ちていたので、演出は諦めてトーストで伝える。 */
+    if(!items.length){
+      toast("ミッション"+missions.length+"件 達成","summit",
+        {label:"取り消す",fn:function(){ undoEntry(entry); }});
+      return;
+    }
+    ui.fx={kind:"mission", items:items,
            from:events[0].from,to:events[0].to,
            note:achs.length?("実績「"+achs[0].name+"」も解除"):""};
     playFx(); return;
@@ -1605,13 +1654,20 @@ function playFx(){
   var reduce = (S.settings.reducedMotion==="on") ||
     (window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   var el=$("fx"); if(!el) return;
-  var summit=(fx.kind==="summit");
+  var summit=(fx.kind==="summit"), best=(fx.kind==="best");
   var head, cat, name, more="";
   if(summit){ head="SUMMIT"; cat=fx.sub||""; name=fx.title; }
-  else { var it=fx.items[0], n=fx.items.length-1;
+  else if(best){ head="BEST DAY"; cat=fx.sub||""; name=fx.title; }
+  else { var it=(fx.items&&fx.items[0])||{catLabel:'',title:''}, n=(fx.items?fx.items.length:0)-1;
     head="MISSION COMPLETE"; cat=esc(it.catLabel); name=it.title;
     if(n>0) more='<div class="more">ほか '+n+' 件 達成</div>'; }
-  el.innerHTML='<div class="fxin'+(summit?" sm":"")+'"><div class="ring"></div>'
+  /* 一度に跨いだ残りの座。多いときは畳んで件数だけ添える。 */
+  if(fx.list&&fx.list.length){
+    var show=fx.list.slice(0,4), rest=fx.list.length-show.length;
+    more+='<div class="also"><b>同時に '+fx.list.length+' 座も通過</b>'
+      + '<span>'+show.map(esc).join(" ・ ")+(rest>0?" ほか"+rest+"座":"")+'</span></div>';
+  }
+  el.innerHTML='<div class="fxin'+(summit?" sm":"")+(best?" bd":"")+'"><div class="ring"></div>'
     + '<svg class="peak prof" width="92" height="62" viewBox="0 0 92 62" aria-hidden="true">'
     + '<path d="M2 58 L26 34 L38 42 L52 12 L68 40 L78 32 L90 58 Z" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linejoin="round"/>'
     + '<path d="M52 12 L45 21 L49 19 L52 22 L56 18 L60 22 Z" fill="var(--text)"/>'
@@ -1622,7 +1678,8 @@ function playFx(){
     + '<div class="nm">'+esc(name)+'</div>'
     + more
     + (fx.note?'<div class="more">'+esc(fx.note)+'</div>':'')
-    + '<div class="alt num"><span id="fxn">'+fmt(fx.from)+'</span> m</div></div>';
+    + '<div class="alt num"><span id="fxn">'+fmt(fx.from)+'</span> m</div>'
+    + '<button class="fxx" data-act="fxClose">閉じる</button></div>';
   el.className=reduce?"show reduce":"show";
   if(!reduce){
     var t0=performance.now(), dur=260;
@@ -1633,8 +1690,10 @@ function playFx(){
     };
     setTimeout(function(){ requestAnimationFrame(tick); },200);
   } else { var n=$("fxn"); if(n) n.textContent=fmt(fx.to); }
+  /* 読む量が増えたぶんだけ表示を延ばす。一覧が出るときに1.5秒では読み切れない。 */
+  var hold=(reduce?1200:2200)+(fx.list&&fx.list.length?900:0)+(fx.note?400:0);
   clearTimeout(fxT);
-  fxT=setTimeout(function(){ el.className=""; }, reduce?900:1500);
+  fxT=setTimeout(function(){ el.className=""; }, hold);
   el.onclick=function(){ clearTimeout(fxT); el.className=""; };
 }
 var fxT;
@@ -1746,6 +1805,7 @@ var ACTS={
   saveMeasure:saveMeasure,
   addSegNow:addSegNow,
   showAllM:function(){ ui.mAll=true; render(); },
+  fxClose:function(){ clearTimeout(fxT); var el=$("fx"); if(el) el.className=""; },
   segfixA:function(el){ ui.segDraft=ui.segDraft||{}; ui.segDraft.height=el.getAttribute("data-h");
     ui.segDraft.steps=""; render(); },
   segfixB:function(el){ ui.segDraft=ui.segDraft||{}; ui.segDraft.height=el.getAttribute("data-h"); render(); },
@@ -1856,6 +1916,9 @@ function bind(){
     if($("bRise")) $("bRise").onchange=function(e){ var v=num(e.target.value); if(v)S.baseRise=v/1000; save(); render(); };
     if($("bFloor")) $("bFloor").onchange=function(e){ var v=num(e.target.value); if(v)S.baseFloorH=v; save(); render(); };
     if($("thm2")) $("thm2").onchange=toggleTheme;
+    if($("fxOn")) $("fxOn").onchange=function(e){
+      S.settings.fx=e.target.checked?"on":"off"; save(); render();
+      toast(e.target.checked?"演出を出します":"演出を止めました"); };
     if($("repBar")) $("repBar").onchange=function(e){
       S.settings.repeatBar=e.target.checked; ui.hideRepeat=false; save(); render(); };
     if($("swv")) showCacheName();
