@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.7";
+var BUILD="2026-08-18.8";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -189,8 +189,7 @@ function dailyCard(){
     + '<div class="dsc">'+esc(it.desc)+'</div>'
     + '<div class="pb"><i style="width:'+pct+'%"></i></div>'
     + '<div class="sb num">'+cur+' / '+it.target.toLocaleString()+it.unit
-    + (p.done?'　<b>達成</b>':'　'+pct+'%')+'</div>'
-    + '<div class="note" style="margin-bottom:0">お題は毎日入れ替わります。達成できなくても記録は普通に残ります。</div></div>';
+    + (p.done?'　<b>達成</b>':'　'+pct+'%')+'　<span class="mu">毎日入れ替わります</span></div></div>';
 }
 function vHome(){
   if(!S.entries.length && !ui.skipWelcome) return vWelcome();
@@ -334,18 +333,22 @@ function todayCard(){
   return '<div class="card"><h3>今日</h3>'
     + '<div class="today">'
     +   '<div class="t-main"><span class="v num">'+fmt(t.m)+'<i>m</i></span>'
-    +     '<span class="k">'+(function(){ var r=D.reachedRank(t.m);
-            return r? esc(r.name)+' まで' : (t.n?t.n+'本 記録':'まだ記録なし'); })()+'</span></div>'
+    +     '<span class="k nx">'+(function(){
+            var nx=D.nextRanks(t.m,1)[0];
+            if(!nx) return '全'+D.NTIER+'座に到達';
+            return '次 <b>'+esc(nx.rank.name)+'</b> '
+              + Math.min(100,Math.round(t.m/nx.rank.m*100))+'% ・ あと '+fmt(nx.remain)+'m'; })()+'</span></div>'
     +   '<div class="t-sub"><div><span class="k">消費エネルギー</span>'
     +     '<span class="v num">'+t.kcal.toLocaleString()+'<i>kcal</i></span></div>'
     +     '<div><span class="k">のぼった段数</span>'
     +     '<span class="v num">'+t.steps.toLocaleString()+'<i>段</i></span></div></div>'
     + '</div>'
-    + '<div class="days">'+days.map(function(d,i){
+    /* 進捗率は数字の直後に置く。棒グラフを先に出すと画面外へ押し出されて見えなかった。 */
+    + rankProgress(t.m,5,3)
+    + '<div class="days" style="margin-top:var(--s4)">'+days.map(function(d,i){
         var on=(i===days.length-1);
         return '<div class="'+(on?"now":"")+'"><i style="height:'+Math.max(3,d.m/mx*54)+'px"></i>'
           + '<span>'+DOW[d.dow]+'</span></div>'; }).join("")+'</div>'
-    + rankProgress(t.m,5,3)
     + '<div class="note" style="margin-bottom:0">直近7日で '+fmt(w.m)+'m ・ '+w.kcal.toLocaleString()+'kcal ・ '+w.days+'日</div>'
     + '</div>';
 }

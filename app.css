@@ -580,3 +580,6 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 /* 未到達と到達済みの境目。ここが「いまいる高さ」になる。 */
 .rp .sep{display:block;height:0;padding:0;margin:var(--s2) 0;
   border-top:var(--hair) dashed var(--hairline-2);}
+.dch .sb .mu{color:var(--muted);}
+.today .t-main .nx{line-height:1.6;}
+.today .t-main .nx b{color:var(--orange);font-weight:700;}
