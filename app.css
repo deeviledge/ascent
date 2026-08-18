@@ -583,3 +583,7 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 .dch .sb .mu{color:var(--muted);}
 .today .t-main .nx{line-height:1.6;}
 .today .t-main .nx b{color:var(--orange);font-weight:700;}
+
+/* ---- 履歴の記録時刻 ---- */
+.row .sb .tm{color:var(--text-2);font-weight:700;}
+.row .sb .tm.est{color:var(--muted);font-weight:400;}
