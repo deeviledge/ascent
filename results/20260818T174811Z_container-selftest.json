@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "label": "container-selftest",
+  "note": "クラウドコンテナ上での動作確認。自宅回線の実測値ではない。",
+  "started_at": "2026-08-18T17:48:07Z",
+  "finished_at": "2026-08-18T17:48:11Z",
+  "duration_sec": 4.4,
+  "host": {
+    "os": "Linux",
+    "release": "6.18.5-fc-v20",
+    "machine": "x86_64",
+    "python": "3.11.15",
+    "hostname": "(masked)"
+  },
+  "config": {
+    "ping_count": 3,
+    "dl_seconds": 5,
+    "url": "https://speed.cloudflare.com/__down?bytes=1000000000",
+    "route_target": "8.8.8.8",
+    "redacted": true
+  },
+  "default_gateway": null,
+  "sections": {
+    "wifi": {
+      "status": "unavailable",
+      "reason": "iw が無い (無線が無い環境か、iw 未インストール)",
+      "data": {}
+    },
+    "ipv6": {
+      "status": "ok",
+      "data": {
+        "has_global_address": false,
+        "global_addresses": [],
+        "ula_addresses": [],
+        "has_default_route": false,
+        "reachable_v6": false,
+        "reach_rtt_ms": null,
+        "reach_target": "2606:4700:4700::1111:443 (Cloudflare DNS over IPv6)"
+      },
+      "raw": "---",
+      "note": "IPv6 が全く降りてきていない。PPPoE 接続の可能性が高い(要確認)。"
+    },
+    "wan": {
+      "status": "unavailable",
+      "reason": "ISP情報の取得に失敗: URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+      "data": {}
+    },
+    "latency": {
+      "status": "unavailable",
+      "reason": "ping が無い",
+      "data": {}
+    },
+    "route": {
+      "status": "unavailable",
+      "reason": "traceroute が無い",
+      "data": {}
+    },
+    "dns": {
+      "status": "ok",
+      "data": {
+        "1.1.1.1": {
+          "server": "1.1.1.1",
+          "queries": 5,
+          "avg_ms": 14.27,
+          "median_ms": 4.54,
+          "min_ms": 2.63,
+          "max_ms": 39.15,
+          "failures": 0
+        },
+        "8.8.8.8": {
+          "server": "8.8.8.8",
+          "queries": 5,
+          "avg_ms": 7.83,
+          "median_ms": 2.84,
+          "min_ms": 2.54,
+          "max_ms": 15.62,
+          "failures": 0
+        }
+      }
+    },
+    "throughput": {
+      "status": "unavailable",
+      "reason": "ダウンロードが全く成立しなかった: ['URLError: <urlopen error Tunnel connection failed: 403 Forbidden>']",
+      "data": {},
+      "raw": "{\"url\": \"https://speed.cloudflare.com/__down?bytes=1000000000\", \"single\": {\"streams\": 1, \"bytes\": 0, \"seconds\": 0.49, \"mbps\": 0.0, \"errors\": [\"URLError: <urlopen error Tunnel connection failed: 403 Forbidden>\"]}, \"parallel6\": {\"streams\": 6, \"bytes\": 0, \"seconds\": 1.35, \"mbps\": 0.0, \"errors\": [\"URLError: <urlopen error Tunnel connection failed: 403 Forbidden>\", \"URLError: <urlopen error Tunnel connection failed: 403 Forbidden>\", \"URLError: <urlopen error Tunnel connection failed: 403 Forbidden>\"]}}"
+    },
+    "bufferbloat": {
+      "status": "unavailable",
+      "reason": "RPM も負荷時遅延も測れなかった",
+      "data": {}
+    }
+  },
+  "summary": {
+    "wifi.rssi_dbm": null,
+    "wifi.noise_dbm": null,
+    "wifi.snr_db": null,
+    "wifi.tx_rate_mbps": null,
+    "wifi.phy_mode": null,
+    "wifi.channel": null,
+    "wifi.width_mhz": null,
+    "ipv6.has_global_address": false,
+    "ipv6.has_default_route": false,
+    "ipv6.reachable_v6": false,
+    "wan.as_organization": null,
+    "latency.gateway.avg_ms": null,
+    "latency.gateway.loss_pct": null,
+    "latency.1.1.1.1.avg_ms": null,
+    "latency.1.1.1.1.max_ms": null,
+    "latency.1.1.1.1.loss_pct": null,
+    "latency.8.8.8.8.avg_ms": null,
+    "latency.8.8.8.8.loss_pct": null,
+    "dns.router.avg_ms": null,
+    "dns.1.1.1.1.avg_ms": 14.27,
+    "dns.8.8.8.8.avg_ms": 7.83,
+    "throughput.single.mbps": null,
+    "throughput.parallel6.mbps": null,
+    "throughput.parallel_gain": null,
+    "bufferbloat.network_quality.dl_rpm": null,
+    "bufferbloat.network_quality.ul_rpm": null,
+    "bufferbloat.network_quality.base_rtt_ms": null,
+    "bufferbloat.loaded_latency.idle_avg_ms": null,
+    "bufferbloat.loaded_latency.loaded_avg_ms": null,
+    "bufferbloat.loaded_latency.delta_ms": null,
+    "_status": {
+      "wifi": "unavailable",
+      "ipv6": "ok",
+      "wan": "unavailable",
+      "latency": "unavailable",
+      "route": "unavailable",
+      "dns": "ok",
+      "throughput": "unavailable",
+      "bufferbloat": "unavailable"
+    }
+  }
+}
