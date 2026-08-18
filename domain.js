@@ -307,9 +307,9 @@ function byDate(S){ var m={};
   S.entries.forEach(function(e){ m[e.date]=(m[e.date]||0)+e.meters; }); return m; }
 /* ===== 日別の到達 =====
    累計とは別軸で、その日の合計mが66座のどこまで届いたかを見る。
-   1日に登れるのは実用上600m程度までなので、日別の目盛りはそこで固定する。
-   そうすると日どうしを同じ物差しで比べられる。 */
-var DAY_CAP=600;
+   1日ぶんの上限は1,000mとして、日別の目盛りをそこで固定する。
+   可変にすると期間ごとにバーの高さの意味が変わるので、固定して日どうしを比べられるようにする。 */
+var DAY_CAP=1000;
 /* その高さで到達済みになる一番高い座。equivalent と違い座そのものを返す。 */
 function reachedRank(m){
   var pick=null;
@@ -328,10 +328,11 @@ function dailyRanks(S,days){
              ratio: nx? Math.max(0,Math.min(1,(d.m-lo)/(nx.m-lo))) : 1 };
   });
 }
-/* グラフの目安線。600m以下の座から、80m以上あけて上から拾う。 */
+/* グラフの目安線。上限以下の座から、上から順に間隔をあけて拾う。
+   間隔を上限に比例させてあるので、上限を変えても線の本数はだいたい保たれる。 */
 function dayGuides(){
-  var pool=RANKS.filter(function(r){ return r.m<=DAY_CAP; }), out=[], last=1e9;
-  for(var i=pool.length-1;i>=0;i--){ if(last-pool[i].m>=80){ out.push(pool[i]); last=pool[i].m; } }
+  var pool=RANKS.filter(function(r){ return r.m<=DAY_CAP; }), out=[], last=1e9, gap=DAY_CAP/7;
+  for(var i=pool.length-1;i>=0;i--){ if(last-pool[i].m>=gap){ out.push(pool[i]); last=pool[i].m; } }
   return out.reverse();
 }
 /* 座ごとに「そこまで届いた日」が何日あったか。高い順。 */
