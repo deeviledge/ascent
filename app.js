@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.2";
+var BUILD="2026-08-18.3";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -44,8 +44,8 @@ function load(){
       var gs=sp.segs.filter(function(g){return ids.indexOf(g.id)>=0;});
       return gs.length? D.stepsForSegs(S,sp,gs)*(reps||1) : null; }
   });
-  S=res.data; S.over=S.over||{}; D.pruneOver(S); M.ensure(S); save();
-  D.recomputeSummits(S); M.ensure(S); D.syncAchievements(S);
+  S=res.data; S.over=S.over||{}; D.pruneOver(S); M.ensure(S); M.ensureDaily(S); save();
+  D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
   if(res.migrated){
     try{ if(res.backup&&!localStorage.getItem(KEY+":backup:pre"))
       localStorage.setItem(KEY+":backup:pre",res.backup); }catch(e){}
@@ -177,6 +177,21 @@ function vWelcome(){
     + 'アカウントも通信もありません。設定からいつでも書き出せます。</div>';
 }
 
+/* 今日のお題。毎日おなじ登り方になるのを崩すためのもので、量ではなく中身を日替わりにする。 */
+function dailyCard(){
+  var p=M.dailyProgress(S);
+  if(!p) return '';
+  var it=p.item, pct=Math.round(p.ratio*100);
+  var cur=(it.unit==="m")?fmt(p.current):Math.round(p.current);
+  return '<div class="card dch'+(p.done?" done":"")+'">'
+    + '<h3>今日のお題 <span class="tg">'+esc(it.tag)+'</span></h3>'
+    + '<div class="ttl">'+(p.done?'<span class="ck">✓</span>':'')+esc(it.title)+'</div>'
+    + '<div class="dsc">'+esc(it.desc)+'</div>'
+    + '<div class="pb"><i style="width:'+pct+'%"></i></div>'
+    + '<div class="sb num">'+cur+' / '+it.target.toLocaleString()+it.unit
+    + (p.done?'　<b>達成</b>':'　'+pct+'%')+'</div>'
+    + '<div class="note" style="margin-bottom:0">お題は毎日入れ替わります。達成できなくても記録は普通に残ります。</div></div>';
+}
 function vHome(){
   if(!S.entries.length && !ui.skipWelcome) return vWelcome();
   var t=D.lifetime(S), k=D.tierOf(t);
@@ -197,6 +212,7 @@ function vHome(){
         : '全'+D.NTIER+'座を制覇。ここから先は自分で目標を置く領域です。')+'</div></div></div>'
     + ladderBar(t,k)
 
+    + dailyCard()
     + todayCard()
     + recapCard()
     + missionCard()
@@ -1542,17 +1558,17 @@ function commit(){
     weightAtSave:S.weight,kcal:D.kcalRaw(meters,S.weight,ui.round),
     confidence:best?{max:best,segs:segs}:null};
   var wk0=M.currentWeek();
-  var snapBefore=D.snapshot(S,M.weekProgress(S,wk0));
+  var snapBefore=D.snapshot(S,M.weekProgress(S,wk0),(M.dailyProgress(S)||{}).done);
 
   S.entries.unshift(e);
   D.recomputeSummits(S);
-  M.ensure(S);
+  M.ensure(S); M.ensureDaily(S);
   var fresh=D.syncAchievements(S);
   save();
 
   var wp=M.weekProgress(S,wk0), byId={};
   wp.items.forEach(function(p){ byId[p.item.id]=p.item; });
-  var snapAfter=D.snapshot(S,wp);
+  var snapAfter=D.snapshot(S,wp,(M.dailyProgress(S)||{}).done);
   var events=D.buildEvents(snapBefore,snapAfter,{entry:e,missionById:byId});
 
   events.filter(function(x){return x.type==="MISSION_COMPLETED";}).forEach(function(x){
@@ -1581,10 +1597,13 @@ function presentEvents(events,entry){
   var missions=events.filter(function(x){return x.type==="MISSION_COMPLETED";});
   var achs=events.filter(function(x){return x.type==="ACHIEVEMENT_UNLOCKED";});
   var daily=events.filter(function(x){return x.type==="DAILY_RANK_REACHED";})[0];
+  var task=events.filter(function(x){return x.type==="DAILY_TASK_DONE";})[0];
+  var taskTitle=task?((M.dailyProgress(S)||{}).item||{}).title:null;
   var extra=[];
   if(missions.length) extra.push("ミッション"+missions.length+"件");
   if(achs.length) extra.push("実績"+achs.length+"件");
   if(daily) extra.push("今日は "+daily.name+" まで");
+  if(taskTitle) extra.push("お題「"+taskTitle+"」達成");
 
   /* 演出を切っている場合は、内容をトーストにまとめて済ませる */
   if(S.settings.fx==="off"){
@@ -1600,9 +1619,10 @@ function presentEvents(events,entry){
 
   if(!top||top.type==="ENTRY_RECORDED"){
     /* 累計の到達はないが、今日ぶんが山に届いた場合はトーストで軽く伝える */
-    toast(daily? ("今日は "+daily.name+" まで登りました")
+    toast(taskTitle? ("今日のお題「"+taskTitle+"」達成")
+        : daily? ("今日は "+daily.name+" まで登りました")
                : (fmt(entry.meters)+"m 記録しました"),
-      daily?"summit":null, {label:"取り消す",fn:function(){ undoEntry(entry); }});
+      (taskTitle||daily)?"summit":null, {label:"取り消す",fn:function(){ undoEntry(entry); }});
     return;
   }
   if(top.type==="SUMMIT_COMPLETED"){
@@ -1645,7 +1665,7 @@ function presentEvents(events,entry){
 }
 function undoEntry(e){
   S.entries=S.entries.filter(function(x){return x.id!==e.id;});
-  D.recomputeSummits(S); M.ensure(S); save(); render(); toast("取り消しました");
+  D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); save(); render(); toast("取り消しました");
 }
 
 /* ===== MISSION COMPLETE 演出（560ms・CSSのみ） ===== */
@@ -1740,7 +1760,7 @@ var ACTIONS={
   cat:function(v){ ui.cat=v; render(); },
   per:function(v){ ui.period=Number(v); render(); },
   del:function(v){ S.entries=S.entries.filter(function(x){ return String(x.id)!==v; });
-    D.recomputeSummits(S); M.ensure(S); save(); render(); },
+    D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); save(); render(); },
   base:function(v){ S.baseRise=Number(v)/1000; save(); render();
     toast("基準の蹴上げを "+v+"mm にしました"); },
   clear:function(v){ delete S.over[v]; save(); render(); toast("設定を消しました"); },
@@ -2000,7 +2020,7 @@ function saveEdit(){
   if(sp){ var gs=sp.segs.filter(function(g){ return (e.segIds||[]).indexOf(g.id)>=0; });
     if(gs.length) e.steps=Math.round(D.stepsForSegs(S,sp,gs)*e.reps); }
   S.entries.sort(function(a,b){ return b.id-a.id; });
-  D.recomputeSummits(S); M.ensure(S); D.syncAchievements(S); save();
+  D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S); save();
   ui.screen="history"; render(); toast("更新しました");
 }
 function saveMeasure(){

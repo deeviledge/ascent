@@ -540,3 +540,21 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 #fx .fxin.bd .cat{color:var(--muted);letter-spacing:.06em;font-weight:600;}
 @media (prefers-reduced-motion:reduce){ #fx .also,#fx .fxx{animation:none !important;} }
 #fx.reduce .also,#fx.reduce .fxx{animation:none;}
+
+/* ---- 今日のお題 ---- */
+.dch h3{display:flex;align-items:center;gap:var(--s2);}
+.dch .tg{font-size:9px;letter-spacing:.1em;color:var(--cyan);
+  border:1px solid var(--cyan);border-radius:2px;padding:1px 5px;font-weight:700;}
+.dch .ttl{font-size:var(--f-lg);font-weight:700;line-height:1.35;}
+.dch .ck{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  background:var(--green);color:var(--ink-0);font-size:11px;font-weight:700;
+  margin-right:6px;vertical-align:2px;}
+.dch .dsc{font-size:var(--f-xs);color:var(--text-2);margin:6px 0 var(--s3);line-height:1.6;}
+.dch .pb{background:var(--hairline);}
+.dch .pb i{background:var(--orange);}
+.dch .sb{display:block;font-size:var(--f-2xs);color:var(--muted);margin-top:6px;}
+.dch .sb b{color:var(--green);}
+.dch.done{border-color:var(--green);
+  background:color-mix(in srgb,var(--green) 8%,var(--surface));}
+.dch.done .pb i{background:var(--green);}
+.dch.done .tg{color:var(--green);border-color:var(--green);}

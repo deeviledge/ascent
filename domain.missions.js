@@ -177,6 +177,170 @@ var TPL=[
       if(!e.createdAt) return false;
       return new Date(e.createdAt).getHours()<10; }).length; }}
 ];
+/* ===== 今日のお題 =====
+   週ミッションは目標の大きさを競う。こちらは「毎日おなじことをしている」状態を崩すのが目的なので、
+   量ではなく行動の中身を日替わりで変える。週と同じく日付シードの決定的生成で、
+   直近に出たお題は避ける。 */
+function dailyBaseline(S){
+  var days=D.lastDays(S,14).filter(function(d){ return d.m>0; });
+  var m=0,mx=0; days.forEach(function(d){ m+=d.m; if(d.m>mx) mx=d.m; });
+  var td=D.today(), single=0, reps=0;
+  S.entries.forEach(function(e){
+    if(e.date>=D.dayShift(-13) && e.date<td){
+      if(e.meters>single) single=e.meters;
+      if((e.reps||1)>reps) reps=e.reps||1;
+    }
+  });
+  return { days:days.length, avg:days.length?m/days.length:0, maxDay:mx,
+           maxSingle:single, maxReps:reps };
+}
+function todaySpots(S){
+  var d=D.today(), s={};
+  S.entries.forEach(function(e){ if(e.date===d) s[e.spotId]=1; });
+  return Object.keys(s);
+}
+function areaOfSpot(S,id){ var sp=D.spotOf(S,id); return sp&&sp.area?sp.area:"—"; }
+var DTPL=[
+ {id:"D_BEAT_YESTERDAY",tag:"昨日超え",
+  need:function(S){ return D.dayStats(S,D.dayShift(-1)).m>0; },
+  target:function(b,S){ return round5(D.dayStats(S,D.dayShift(-1)).m+5); },
+  title:function(t){ return "昨日より上へ"; }, unit:"m",
+  desc:function(t,S){ return "昨日の合計は "+fmtn(D.dayStats(S,D.dayShift(-1)).m)+"m。今日は "+fmtn(t)+"m まで積もう。"; },
+  val:function(S){ return D.dayStats(S,D.today()).m; }},
+
+ {id:"D_NEW_SPOT",tag:"開拓",
+  need:function(S){ var e=D.exploration(S); return e.total-e.done>0; },
+  target:function(){ return 1; },
+  title:function(){ return "まだ登っていない地点へ"; }, unit:"ヶ所",
+  desc:function(){ return "今日、初めての地点をひとつ登ろう。いつもの階段から一歩ずらす日。"; },
+  val:function(S){
+    var d=D.today(), before={}, seen={}, n=0;
+    S.entries.forEach(function(e){ if(e.date<d) before[e.spotId]=1; });
+    S.entries.forEach(function(e){
+      if(e.date===d && !before[e.spotId] && !seen[e.spotId]){ seen[e.spotId]=1; n++; } });
+    return n; }},
+
+ {id:"D_TWO_SPOTS",tag:"はしご",
+  need:function(S){ return D.allSpots(S).length>=2; },
+  target:function(){ return 2; },
+  title:function(t){ return t+"ヶ所をはしご"; }, unit:"ヶ所",
+  desc:function(t){ return "今日のうちに違う地点を "+t+"ヶ所。同じエリアで揃えば縦走にもなる。"; },
+  val:function(S){ return todaySpots(S).length; }},
+
+ {id:"D_MORNING",tag:"朝",
+  target:function(){ return 1; },
+  title:function(){ return "10時前に一本"; }, unit:"本",
+  desc:function(){ return "午前10時より前に1回記録しよう。朝のうちに済ませる日。"; },
+  val:function(S){ var d=D.today();
+    return S.entries.filter(function(e){ return e.date===d && e.createdAt
+      && new Date(e.createdAt).getHours()<10; }).length; }},
+
+ {id:"D_NIGHT",tag:"夜",
+  target:function(){ return 1; },
+  title:function(){ return "21時以降に一本"; }, unit:"本",
+  desc:function(){ return "夜に1回記録しよう。帰り道のひと登り。"; },
+  val:function(S){ var d=D.today();
+    return S.entries.filter(function(e){ return e.date===d && e.createdAt
+      && new Date(e.createdAt).getHours()>=21; }).length; }},
+
+ {id:"D_ONE_SHOT",tag:"一撃",
+  need:function(S){ return dailyBaseline(S).maxSingle>0; },
+  target:function(b){ return round5(Math.max(20,(b.maxSingle||20)*1.1)); },
+  title:function(t){ return "一度に "+t+"m"; }, unit:"m",
+  desc:function(t){ return "1回の記録で "+t+"m 以上を積もう。刻まずにまとめて登る日。"; },
+  val:function(S){ var d=D.today();
+    return S.entries.filter(function(e){ return e.date===d; })
+      .reduce(function(a,e){ return Math.max(a,e.meters); },0); }},
+
+ {id:"D_REACH_RANK",tag:"到達",
+  target:function(b,S){
+    var base=Math.max(D.dayStats(S,D.today()).m, b.avg||60);
+    var nx=D.nextRank(base);
+    return nx? nx.m : round10(base*1.2); },
+  title:function(t,S){ var r=D.reachedRank(t); return (r?r.name:fmtn(t)+"m")+" まで"; }, unit:"m",
+  desc:function(t,S){ var r=D.reachedRank(t);
+    return "今日ぶんの合計で "+(r?r.name+"（"+fmtn(t)+"m）":fmtn(t)+"m")+" に届かせよう。"; },
+  val:function(S){ return D.dayStats(S,D.today()).m; }},
+
+ {id:"D_ROUND",tag:"往復",
+  target:function(){ return 1; },
+  title:function(){ return "下りも歩く"; }, unit:"本",
+  desc:function(){ return "往復（下りも歩いた）で1回記録しよう。同じ階段でも負荷が変わる。"; },
+  val:function(S){ var d=D.today();
+    return S.entries.filter(function(e){ return e.date===d && e.round; }).length; }},
+
+ {id:"D_QUIET_AREA",tag:"ごぶさた",
+  need:function(S){ return quietAreas(S).length>0; },
+  target:function(){ return 1; },
+  title:function(){ return "しばらく行っていないエリアへ"; }, unit:"ヶ所",
+  desc:function(t,S){ var q=quietAreas(S);
+    return "この2週間で登っていないエリアへ。"+(q.length?"例: "+q.slice(0,3).join(" / "):""); },
+  val:function(S){
+    var recent={};
+    S.entries.forEach(function(e){
+      if(e.date>=D.dayShift(-14) && e.date<D.today()) recent[areaOfSpot(S,e.spotId)]=1; });
+    return todaySpots(S).filter(function(id){ return !recent[areaOfSpot(S,id)]; }).length; }},
+
+ {id:"D_REPS",tag:"反復",
+  need:function(S){ return dailyBaseline(S).maxReps>0; },
+  target:function(b){ return Math.max(2,Math.min(12,(b.maxReps||1)+1)); },
+  title:function(t){ return "同じ階段を "+t+"本"; }, unit:"本",
+  desc:function(t){ return "ひとつの記録で "+t+"本。往復して数を積む日。"; },
+  val:function(S){ var d=D.today();
+    return S.entries.filter(function(e){ return e.date===d; })
+      .reduce(function(a,e){ return Math.max(a,e.reps||1); },0); }}
+];
+function fmtn(n){ return Math.round(n).toLocaleString(); }
+function quietAreas(S){
+  var all={}, recent={};
+  D.allSpots(S).forEach(function(sp){ if(sp.area&&sp.area!=="—") all[sp.area]=1; });
+  S.entries.forEach(function(e){
+    if(e.date>=D.dayShift(-14)) recent[areaOfSpot(S,e.spotId)]=1; });
+  return Object.keys(all).filter(function(a){ return !recent[a]; });
+}
+function dtplOf(id){ for(var i=0;i<DTPL.length;i++) if(DTPL[i].id===id) return DTPL[i]; return null; }
+/* 直近に出たお題は避ける */
+function recentDailyIds(S,dateStr,back){
+  var out={};
+  for(var i=1;i<=(back||6);i++){
+    var k=shiftFrom(dateStr,-i), it=(S.daily||{})[k];
+    if(it&&it.tpl) out[it.tpl]=1;
+  }
+  return out;
+}
+function shiftFrom(dateStr,n){
+  var d=new Date(dateStr+"T00:00:00"); d.setDate(d.getDate()+n); return D.ymd(d);
+}
+var DAILY_VERSION=1;
+function generateDaily(S,dateStr){
+  var b=dailyBaseline(S), r=rng(fnv(dateStr+"|d"+DAILY_VERSION)), recent=recentDailyIds(S,dateStr);
+  var pool=DTPL.filter(function(t){ return !t.need||t.need(S); });
+  var fresh=pool.filter(function(t){ return !recent[t.id]; });
+  if(fresh.length) pool=fresh;
+  var t=pool[Math.floor(r()*pool.length)]||DTPL[3];
+  var target=t.target(b,S);
+  if(t.unit==="m") target=round5(target);
+  return { date:dateStr, tpl:t.id, tag:t.tag, target:target, unit:t.unit,
+           title:t.title(target,S), desc:t.desc(target,S),
+           generatorVersion:DAILY_VERSION };
+}
+function ensureDaily(S){
+  var k=D.today();
+  S.daily=S.daily||{};
+  if(!S.daily[k]||S.daily[k].generatorVersion!==DAILY_VERSION) S.daily[k]=generateDaily(S,k);
+  /* 30日より前は捨てる。ここを残しても誰も見ない。 */
+  var cut=D.dayShift(-30);
+  Object.keys(S.daily).forEach(function(d){ if(d<cut) delete S.daily[d]; });
+  return S.daily[k];
+}
+function dailyProgress(S){
+  var it=(S.daily||{})[D.today()];
+  if(!it) return null;
+  var t=dtplOf(it.tpl);
+  var cur=t? t.val(S) : 0;
+  return { item:it, current:cur, target:it.target,
+           ratio:Math.max(0,Math.min(1,cur/it.target)), done:cur>=it.target };
+}
 function tplOf(id){ for(var i=0;i<TPL.length;i++) if(TPL[i].id===id) return TPL[i]; return null; }
 
 /* ===== 生成 ===== */
@@ -266,5 +430,7 @@ function newlyCompleted(before,after){
 root.M={ weekStartOf:weekStartOf, weekEndOf:weekEndOf, currentWeek:currentWeek, prevWeek:prevWeek,
   weekLabel:weekLabel, daysLeft:daysLeft, weekSummary:weekSummary, entriesOfWeek:entriesOfWeek,
   baseline:baseline, generate:generate, ensure:ensure, progress:progress, weekProgress:weekProgress,
-  newlyCompleted:newlyCompleted, tplOf:tplOf, TPL:TPL, GENERATOR_VERSION:GENERATOR_VERSION };
+  newlyCompleted:newlyCompleted, tplOf:tplOf, TPL:TPL, GENERATOR_VERSION:GENERATOR_VERSION,
+  DTPL:DTPL, dtplOf:dtplOf, dailyBaseline:dailyBaseline, generateDaily:generateDaily,
+  ensureDaily:ensureDaily, dailyProgress:dailyProgress, DAILY_VERSION:DAILY_VERSION };
 })(typeof window!=="undefined"?window:globalThis);
