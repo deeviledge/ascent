@@ -313,8 +313,16 @@ svg.prof{display:block;}
 .dif.easy{color:var(--green);} .dif.standard{color:var(--amber);} .dif.stretch{color:var(--orange);}
 
 /* ---- MISSION COMPLETE ---- */
+/* 演出は常に暗い面の上に出る。テーマの文字色をそのまま継承すると、
+   ライトテーマで暗い文字が暗い背景に乗って読めなくなる（実測コントラスト比ほぼ1:1）。
+   この中だけ暗背景用の値に固定する。 */
 #fx{position:fixed;inset:0;z-index:90;display:grid;place-items:center;
-  background:rgba(4,12,19,.86);opacity:0;pointer-events:none;transition:opacity 160ms var(--ease);}
+  background:rgba(4,12,19,.96);opacity:0;pointer-events:none;transition:opacity 160ms var(--ease);
+  --text:#F2F5F7; --text-2:#B9C7D4; --muted:#8296A8;
+  --orange:#FF6A00; --green:#22C55E; --cyan:#22D8EE;
+  --hairline:#26374A; --hairline-2:#33485F;
+  --surface:#16212E; --surface-2:#1E2B3B;
+  color:#F2F5F7;}
 #fx.show{opacity:1;pointer-events:auto;}
 #fx .fxin{text-align:center;padding:0 var(--s6);position:relative;}
 #fx .ring{position:absolute;left:50%;top:-14px;width:180px;height:180px;margin-left:-90px;
@@ -514,3 +522,21 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 .drow .vl i{font-style:normal;font-size:var(--f-2xs);color:var(--muted);margin-left:2px;}
 .drow.best .nm{color:var(--green);}
 .drow.best .pb i{background:var(--green);}
+
+/* ---- 達成演出の追加ぶん ---- */
+#fx .also{margin-top:var(--s4);padding-top:var(--s3);
+  border-top:var(--hair) solid var(--hairline-2);max-width:300px;}
+#fx .also b{display:block;font-size:var(--f-2xs);letter-spacing:.14em;
+  color:var(--green);font-weight:700;}
+#fx .also span{display:block;font-size:var(--f-2xs);color:var(--muted);
+  margin-top:4px;line-height:1.6;}
+#fx.show .also{animation:fxup 320ms var(--ease) 240ms both;}
+#fx .fxx{margin-top:var(--s5);padding:9px 22px;border-radius:999px;
+  border:var(--hair) solid var(--hairline-2);color:var(--text-2);
+  font-size:var(--f-sm);font-weight:600;background:var(--surface);}
+#fx .fxx:active{background:var(--surface-2);}
+#fx.show .fxx{animation:fxup 320ms var(--ease) 300ms both;}
+#fx .fxin.bd .ttl{color:var(--cyan);letter-spacing:.3em;}
+#fx .fxin.bd .cat{color:var(--muted);letter-spacing:.06em;font-weight:600;}
+@media (prefers-reduced-motion:reduce){ #fx .also,#fx .fxx{animation:none !important;} }
+#fx.reduce .also,#fx.reduce .fxx{animation:none;}

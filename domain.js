@@ -425,16 +425,22 @@ function recomputeSummits(S){
 
 /* ===== 内部イベント =====
    ひとつの記録から複数の出来事が起きうるので、検出と演出を分ける。 */
-var EVENT_PRIORITY={SUMMIT_COMPLETED:4,MISSION_COMPLETED:3,ACHIEVEMENT_UNLOCKED:2,ENTRY_RECORDED:1};
+var EVENT_PRIORITY={SUMMIT_COMPLETED:5,DAILY_BEST:4,MISSION_COMPLETED:3,ACHIEVEMENT_UNLOCKED:2,ENTRY_RECORDED:1};
 function snapshot(S,missionProgress){
+  /* 累計に加えて「今日ぶん」も持つ。累計の到達と日別の到達は別の出来事として扱う。 */
+  var td=today(), dm=dayStats(S,td).m, dr=reachedRank(dm);
+  var by=byDate(S), pb=0;
+  Object.keys(by).forEach(function(k){ if(k!==td && by[k]>pb) pb=by[k]; });
   return {
     lifetime:lifetime(S),
     summits:Object.keys(S.summits||{}),
     missions:(missionProgress&&missionProgress.items||[]).filter(function(p){return p.done;})
               .map(function(p){return p.item.id;}),
-    achievements:achievements(S).filter(function(a){return a.got;}).map(function(a){return a.name;})
+    achievements:achievements(S).filter(function(a){return a.got;}).map(function(a){return a.name;}),
+    dayM:dm, dayRank:dr?dr.id:null, prevBest:pb
   };
 }
+function nameOfRank(id){ var r=RANKS.filter(function(x){return x.id===id;})[0]; return r?r.name:""; }
 function buildEvents(before,after,ctx){
   ctx=ctx||{};
   var ev=[];
@@ -453,6 +459,17 @@ function buildEvents(before,after,ctx){
   diff(before.achievements,after.achievements).forEach(function(n){
     ev.push({type:"ACHIEVEMENT_UNLOCKED",priority:EVENT_PRIORITY.ACHIEVEMENT_UNLOCKED,name:n});
   });
+  /* 今日ぶんの合計が新しく届いた座。毎日くり返すので優先度は持たせない（軽く出す）。 */
+  if(after.dayRank && after.dayRank!==before.dayRank){
+    ev.push({type:"DAILY_RANK_REACHED",priority:0,id:after.dayRank,
+             name:nameOfRank(after.dayRank),m:after.dayM});
+  }
+  /* 今日ぶんが過去の最高日を初めて超えた瞬間。稀なので大きく扱う。 */
+  if(after.prevBest>0 && after.dayM>after.prevBest && before.dayM<=before.prevBest){
+    ev.push({type:"DAILY_BEST",priority:EVENT_PRIORITY.DAILY_BEST,
+             m:after.dayM,prev:after.prevBest,id:after.dayRank,
+             name:after.dayRank?nameOfRank(after.dayRank):null});
+  }
   return ev;
 }
 function diff(a,b){ var s={}; a.forEach(function(x){s[x]=1;}); return b.filter(function(x){return !s[x];}); }
