@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-17.17";
+var BUILD="2026-08-18.1";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -10,12 +10,13 @@ var S={schemaVersion:4,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
 var ui={screen:"home",tab:"home",cat:"mall",spotId:null,sel:{},reps:1,round:true,
-  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn",sView:"sum"};
+  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn",sView:"sum",dPeriod:30};
 
 /* ===== サブタブ =====
    分析と探索は中身が多い。以前は画面の最下部のボタンから奥へ潜る構造だったが、
    ヘッダー直下の横並びで直接切り替える。SUBS の並び順がそのまま表示順になる。 */
 var SUBS={
+  mountains:[["mountains","累計"],["daily","日別"]],
   stats:[["stats","概要"],["energy","エネルギー"],["body","ボディ"],["forecast","予測"],["presence","存在感"]],
   spots:[["spots","地点"],["map","攻略マップ"],["complete","コンプリート"],["cards","カード"]]
 };
@@ -78,6 +79,7 @@ function render(){
   if(ui.screen==="home") body=vHome();
   else if(ui.screen==="record") body=vRecord();
   else if(ui.screen==="mountains") body=vMountains();
+  else if(ui.screen==="daily") body=vDaily();
   else if(ui.screen==="mission") body=vMission();
   else if(ui.screen==="recap") body=vRecap();
   else if(ui.screen==="body") body=vBody();
@@ -119,7 +121,7 @@ function header(){
      edit:"history",mdetail:"mission"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
     spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
-    mountains:"全行程",mission:"今週の遠征",recap:"週の記録",
+    mountains:"全行程",daily:"日別の到達",mission:"今週の遠征",recap:"週の記録",
     body:"ボディインパクト",map:"都市攻略",edit:"記録を編集",cards:"地点カード",
     welcome:"VERTEX",presence:"垂直的存在感",mdetail:"ミッション詳細",complete:"コンプリート",energy:"エネルギー",forecast:"予測"}[ui.screen];
   return '<div class="hd">'
@@ -134,7 +136,7 @@ function tabs(){
          ["spots","探索","map"],["history","履歴","history"]];
   // 地点の詳細・追加から来たときも「探索」を点灯させる
   var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mission:"home",
-    recap:"home",body:"stats",map:"spots",edit:"history",cards:"spots",
+    recap:"home",body:"stats",map:"spots",edit:"history",cards:"spots",daily:"mountains",
     presence:"stats",mdetail:"home",welcome:"home",complete:"spots",energy:"stats",forecast:"stats"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
     return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
@@ -1002,6 +1004,93 @@ function vEdit(){
 }
 
 /* ===== S3 分析 ===== */
+/* ===== 日別の到達 =====
+   累計（全行程）とは別軸。その日の合計mが66座のどこまで届いたかを見る。
+   目盛りは D.DAY_CAP(600m)で固定する。1日に登れるのは実用上そこまでで、
+   固定しておくと日どうしを同じ物差しで比べられる。 */
+function dailyChart(rows){
+  var W=340, H=210, padL=8, padR=80, padT=10, padB=20;
+  var cap=D.DAY_CAP, plotH=H-padT-padB, plotW=W-padL-padR;
+  var Y=function(m){ return padT+plotH-Math.min(m,cap)/cap*plotH; };
+  var bw=plotW/rows.length;
+  var guides=D.dayGuides().map(function(r){
+    return '<line x1="'+padL+'" y1="'+Y(r.m).toFixed(1)+'" x2="'+(padL+plotW)+'" y2="'+Y(r.m).toFixed(1)
+      + '" stroke="var(--hairline)" stroke-width="1" stroke-dasharray="2 3"/>'
+      + '<text x="'+(padL+plotW+5)+'" y="'+(Y(r.m)+3.5).toFixed(1)+'" fill="var(--muted)" font-size="8.5">'
+      + esc(r.name.length>9?r.name.slice(0,9)+"…":r.name)+'</text>'
+      + '<text x="'+(padL+plotW+5)+'" y="'+(Y(r.m)+12).toFixed(1)+'" fill="var(--hairline-2)" font-size="7.5">'
+      + r.m+'m</text>'; }).join("");
+  var best=rows.reduce(function(a,d){ return d.m>a?d.m:a; },0);
+  var bars=rows.map(function(d,i){
+    if(d.m<=0) return '';
+    var x=padL+i*bw, y=Y(d.m), h=padT+plotH-y;
+    var over=(d.m>cap);
+    var col=(d.m===best&&best>0)?"var(--green)":"var(--orange)";
+    return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+Math.max(1.2,bw-1).toFixed(1)
+      + '" height="'+Math.max(1,h).toFixed(1)+'" fill="'+col+'" opacity="'+(over?1:.85)+'">'
+      + '<title>'+d.date+' '+fmt(d.m)+'m'+(d.reached?' ・ '+esc(d.reached.name):'')+'</title></rect>'
+      + (over?'<rect x="'+x.toFixed(1)+'" y="'+(padT-3)+'" width="'+Math.max(1.2,bw-1).toFixed(1)
+        + '" height="2.5" fill="var(--cyan)"/>':''); }).join("");
+  return '<svg class="prof" viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'">'
+    + guides + bars
+    + '<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(padL+plotW)+'" y2="'+(padT+plotH)
+    + '" stroke="var(--hairline-2)" stroke-width="1"/>'
+    + '<text x="'+padL+'" y="'+(H-6)+'" fill="var(--muted)" font-size="8.5">'+rows[0].date.slice(5).replace("-","/")+'</text>'
+    + '<text x="'+(padL+plotW)+'" y="'+(H-6)+'" fill="var(--muted)" font-size="8.5" text-anchor="end">'
+    + rows[rows.length-1].date.slice(5).replace("-","/")+'</text>'
+    + '</svg>';
+}
+var DOW=["日","月","火","水","木","金","土"];
+function vDaily(){
+  var days=ui.dPeriod||30;
+  var rows=D.dailyRanks(S,days);
+  var act=rows.filter(function(d){ return d.m>0; });
+  var bd=D.bestDayRank(S);
+  var counts=D.rankDayCounts(S);
+
+  return '<div class="chips">'+[[14,"14日"],[30,"30日"],[60,"60日"],[90,"90日"]].map(function(x){
+      return '<button class="chip '+(days===x[0]?"on":"")+'" data-dper="'+x[0]+'">'+x[1]+'</button>'; }).join("")+'</div>'
+
+    + '<div class="card" style="margin-top:var(--s3)"><h3>自己ベストの1日</h3>'
+    + (bd.date
+        ? '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(bd.m)+'<i>m</i></span>'
+          + '<span class="k">'+bd.date.slice(5).replace("-","/")+'（'+DOW[new Date(bd.date+"T00:00:00").getDay()]+'）</span></div>'
+          + (bd.reached?'<div class="note" style="margin-bottom:0">この日は <b style="color:var(--green)">'
+              +esc(bd.reached.name)+'</b>（'+bd.reached.m.toLocaleString()+'m）まで登れました。</div>':'')
+        : '<div class="note" style="margin:0">まだ記録がありません。</div>')
+    + '</div>'
+
+    + '<div class="card"><h3>1日ごとの到達（直近'+days+'日）</h3>'
+    + dailyChart(rows)
+    + '<div class="note" style="margin-bottom:0">目盛りは1日'+D.DAY_CAP+'mで固定しています。'
+    + '点線はその高さの山、緑はこの期間の最高です。'+D.DAY_CAP+'mを超えた日は上端に印を付けています。</div></div>'
+
+    + '<div class="card"><h3>日ごとの記録 '+act.length+'日</h3>'
+    + (act.length
+        ? act.slice().reverse().map(function(d){
+            var dt=new Date(d.date+"T00:00:00");
+            return '<div class="drow'+(d.m===bd.m?" best":"")+'">'
+              + '<span class="dt num">'+d.date.slice(5).replace("-","/")+'<i>'+DOW[dt.getDay()]+'</i></span>'
+              + '<span class="bd"><span class="nm">'+(d.reached?esc(d.reached.name):'<span class="mu">まだ最初の山に届いていません</span>')+'</span>'
+              + '<span class="pb"><i style="width:'+Math.round(d.ratio*100)+'%"></i></span>'
+              + '<span class="sb num">'+(d.next?'次は '+esc(d.next.name)+'（あと '+fmt(d.next.m-d.m)+'m）':'全座を超えました')+'</span></span>'
+              + '<span class="vl num">'+fmt(d.m)+'<i>m</i></span></div>'; }).join("")
+        : '<div class="empty">この期間に記録した日はありません。</div>')
+    + '</div>'
+
+    + (counts.length? '<div class="card"><h3>どこまで行けた日が何日あるか</h3>'
+        + counts.map(function(c){
+            return '<div class="bl"><span class="nm">'+esc(c.rank.name)+'</span>'
+              + '<span class="ct num" style="width:auto">'+c.days+' 日</span></div>'
+              + '<div class="note" style="margin:0 0 9px">'+c.rank.m.toLocaleString()+'m ・ 最高 '
+              + fmt(c.top.m)+'m（'+c.top.date.slice(5).replace("-","/")+'）</div>'; }).join("")
+        + '<div class="note" style="margin-bottom:0">その日の合計がどの山に届いたかで数えています。'
+        + '同じ日は一番高く届いた山にだけ数えます。</div></div>' : '')
+
+    + '<div class="note">累計（全行程）とは別で、1日ぶんだけを見た到達です。'
+    + '同じ山でも、累計で通過したのか1日で登りきったのかは別の話になります。</div>';
+}
+
 /* ===== S3 分析・概要 =====
    カード13枚を縦に積んでいたので、性質ごとに4つに分けてチップで切り替える。
    期間チップが効くのはサマリーの数字だけなので、サマリー内にだけ置く。 */
@@ -1614,6 +1703,7 @@ var ACTIONS={
   breakby:function(v){ ui.breakBy=v; render(); },
   cfil:function(v){ ui.cFilter=v; render(); },
   fcv:function(v){ ui.fcView=v; render(); },
+  dper:function(v){ ui.dPeriod=Number(v); render(); },
   sv:function(v){ ui.sView=v; try{window.scrollTo(0,0);}catch(e){} render(); },
   pacebase:function(v){ ui.paceBase=v; if(v!=="manual") ui.pace=null; render(); },
   delm:function(v){ D.removeMeasure(S,v); save(); render(); toast("削除しました"); },
@@ -1674,7 +1764,7 @@ var ACTS={
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","pacebase","del","delm",
+var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","dper","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
           "rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){

@@ -305,6 +305,53 @@ function bestDay(S){
 }
 function byDate(S){ var m={};
   S.entries.forEach(function(e){ m[e.date]=(m[e.date]||0)+e.meters; }); return m; }
+/* ===== 日別の到達 =====
+   累計とは別軸で、その日の合計mが66座のどこまで届いたかを見る。
+   1日に登れるのは実用上600m程度までなので、日別の目盛りはそこで固定する。
+   そうすると日どうしを同じ物差しで比べられる。 */
+var DAY_CAP=600;
+/* その高さで到達済みになる一番高い座。equivalent と違い座そのものを返す。 */
+function reachedRank(m){
+  var pick=null;
+  if(m>0) for(var i=0;i<RANKS.length;i++){ if(m>=RANKS[i].m) pick=RANKS[i]; else break; }
+  return pick;
+}
+function nextRank(m){
+  for(var i=0;i<RANKS.length;i++){ if(m<RANKS[i].m) return RANKS[i]; }
+  return null;
+}
+function dailyRanks(S,days){
+  return lastDays(S,days).map(function(d){
+    var rc=reachedRank(d.m), nx=nextRank(d.m);
+    var lo=rc?rc.m:0;
+    return { date:d.date, dow:d.dow, m:d.m, n:d.n, kcal:d.kcal, reached:rc, next:nx,
+             ratio: nx? Math.max(0,Math.min(1,(d.m-lo)/(nx.m-lo))) : 1 };
+  });
+}
+/* グラフの目安線。600m以下の座から、80m以上あけて上から拾う。 */
+function dayGuides(){
+  var pool=RANKS.filter(function(r){ return r.m<=DAY_CAP; }), out=[], last=1e9;
+  for(var i=pool.length-1;i>=0;i--){ if(last-pool[i].m>=80){ out.push(pool[i]); last=pool[i].m; } }
+  return out.reverse();
+}
+/* 座ごとに「そこまで届いた日」が何日あったか。高い順。 */
+function rankDayCounts(S){
+  var by=byDate(S), cnt={}, top={};
+  Object.keys(by).forEach(function(k){
+    var r=reachedRank(by[k]);
+    if(!r) return;
+    cnt[r.id]=(cnt[r.id]||0)+1;
+    if(!top[r.id]||by[k]>top[r.id].m) top[r.id]={date:k,m:by[k]};
+  });
+  return RANKS.filter(function(r){ return cnt[r.id]; })
+    .map(function(r){ return {rank:r, days:cnt[r.id], top:top[r.id]}; })
+    .reverse();
+}
+/* 日別の自己ベスト */
+function bestDayRank(S){
+  var b=bestDay(S);
+  return { date:b.date, m:b.m, reached:reachedRank(b.m) };
+}
 function heatmap(S,weeks){
   var map=byDate(S), out=[], d=new Date(), max=0;
   d.setDate(d.getDate()-(weeks*7-1));
@@ -820,5 +867,5 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,NTIER:NTIER,CONF_RANK:CONF_RANK,pos:pos,tierOf
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
 })(typeof window!=="undefined"?window:globalThis);

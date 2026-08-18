@@ -495,3 +495,22 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 .rlist>.done{color:var(--green);}
 .rlist>.cur{color:var(--orange);font-weight:700;}
 .rlist>.cur .ix,.rlist>.cur .mm{color:var(--orange);}
+
+/* ---- 日別の到達 ---- */
+.drow{display:flex;align-items:center;gap:var(--s3);padding:9px 0;
+  border-bottom:var(--hair) solid var(--hairline);}
+.drow:last-child{border-bottom:none;}
+.drow .dt{flex:0 0 52px;font-size:var(--f-xs);color:var(--text-2);line-height:1.2;}
+.drow .dt i{display:block;font-style:normal;font-size:var(--f-2xs);color:var(--muted);}
+.drow .bd{flex:1;min-width:0;}
+.drow .nm{display:block;font-size:var(--f-sm);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drow .nm .mu{color:var(--muted);font-weight:400;}
+/* 既定のトラック色(--ink-2)はカード面とほぼ同色で見えないため、ここでは罫色を使う */
+.drow .pb{display:block;height:4px;margin:5px 0 4px;background:var(--hairline);}
+.drow .pb i{background:var(--orange);}
+.drow .sb{display:block;font-size:var(--f-2xs);color:var(--muted);}
+.drow .vl{flex:0 0 auto;font-size:var(--f-md);font-weight:700;}
+.drow .vl i{font-style:normal;font-size:var(--f-2xs);color:var(--muted);margin-left:2px;}
+.drow.best .nm{color:var(--green);}
+.drow.best .pb i{background:var(--green);}
