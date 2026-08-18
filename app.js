@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.9";
+var BUILD="2026-08-18.10";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -339,7 +339,10 @@ function todayCard(){
             return '次 <b>'+esc(nx.rank.name)+'</b> '
               + Math.min(100,Math.round(t.m/nx.rank.m*100))+'% ・ あと '+fmt(nx.remain)+'m'; })()+'</span></div>'
     +   '<div class="t-sub"><div><span class="k">消費エネルギー</span>'
-    +     '<span class="v num">'+t.kcal.toLocaleString()+'<i>kcal</i></span></div>'
+    /* 脂肪換算は行を増やさず kcal と同じ行に添える。行を足すと下の進捗率が
+       固定バーの裏へ押し出されるため。 */
+    +     '<span class="v num">'+t.kcal.toLocaleString()+'<i>kcal</i>'
+    +     '<i class="fat">・脂肪 約'+Math.round(D.fatG(t.kcal,S))+'g</i></span></div>'
     +     '<div><span class="k">のぼった段数</span>'
     +     '<span class="v num">'+t.steps.toLocaleString()+'<i>段</i></span></div></div>'
     + '</div>'
@@ -501,6 +504,26 @@ function sparkline(pts,key,color){
     + '<text x="'+pad+'" y="'+(H-1)+'" fill="var(--muted)" font-size="10">'+(Math.round(mn*10)/10)+'</text>'
     + '</svg>';
 }
+/* 日ごとの脂肪換算。累積の折れ線とは別に、その日ぶんの棒で見る。 */
+function fatDailyChart(rows){
+  var W=320, H=104, padL=8, padR=8, padT=10, padB=16;
+  var plotH=H-padT-padB, plotW=W-padL-padR;
+  var mx=rows.reduce(function(a,x){ return x.g>a?x.g:a; },0)||1;
+  var bw=plotW/rows.length;
+  var bars=rows.map(function(x,i){
+    if(x.g<=0) return '';
+    var h=(x.g/mx)*plotH;
+    return '<rect x="'+(padL+i*bw).toFixed(1)+'" y="'+(padT+plotH-h).toFixed(1)
+      + '" width="'+Math.max(1.2,bw-1).toFixed(1)+'" height="'+Math.max(1,h).toFixed(1)
+      + '" fill="var(--amber)" opacity=".9"><title>'+x.date+' 約'+Math.round(x.g)+'g</title></rect>'; }).join("");
+  return '<svg class="prof" viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'">'
+    + bars
+    + '<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(padL+plotW)+'" y2="'+(padT+plotH)
+    + '" stroke="var(--hairline-2)" stroke-width="1"/>'
+    + '<text x="'+padL+'" y="12" fill="var(--muted)" font-size="9.5">'+Math.round(mx)+'g</text>'
+    + '<text x="'+(padL+plotW)+'" y="'+(H-3)+'" fill="var(--muted)" font-size="8.5" text-anchor="end">今日</text>'
+    + '</svg>';
+}
 function vBody(){
   var days=ui.bodyPeriod||30;
   var p=D.periodStats(S,days), wk=M.weekSummary(S,M.currentWeek());
@@ -534,6 +557,9 @@ function vBody(){
     + '<span class="d">'+all.cur.kcal.toLocaleString()+'kcal ・ 約'+(g(all.cur.kcal)>=1000
         ? (Math.round(g(all.cur.kcal)/100)/10)+'kg' : g(all.cur.kcal)+'g')+'</span></div></div>'
 
+    + (!w.length? '<div class="card"><h3>体重（実測）</h3>'
+        + '<div class="note" style="margin:0">まだ体重の記録がありません。'
+        + '下の「身体データを記録」から入れると、ここに推移が残ります。</div></div>' : '')
     + (w.length? '<div class="card"><h3>体重（実測）</h3>'
         + '<div class="eqline"><span class="num v">'+r1v(lastW.weightKg)+'<i>kg</i></span>'
         + (w.length>1?'<span class="k">'+r1v(firstW.weightKg)+' → '+r1v(lastW.weightKg)
@@ -544,6 +570,18 @@ function vBody(){
         + '<div class="vrow"><span>30日平均</span><b class="num">'+(avg30?Math.round(avg30*10)/10+" kg":"—")+'</b></div>'
         + '<div class="note" style="margin-bottom:0">実測した日だけを点で結んでいます。'
         + '体重は日々ぶれるので、単日より平均を見てください。</div></div>' : '')
+
+    + '<div class="card"><h3>脂肪換算（理論値・日ごと）</h3>'
+    + fatDailyChart(D.fatDaily(S,days))
+    + (function(){ var fd=D.fatDaily(S,days), act=fd.filter(function(x){return x.g>0;});
+        var mx=act.reduce(function(a,x){ return x.g>a.g?x:a; },{g:0,date:null});
+        var avg=act.length? act.reduce(function(a,x){return a+x.g;},0)/act.length : 0;
+        return '<div class="vrow"><span>登った日の平均</span><b class="num">'
+          + (act.length?Math.round(avg)+' g/日':'—')+'</b></div>'
+          + '<div class="vrow"><span>最高の日</span><b class="num">'
+          + (mx.date?Math.round(mx.g)+' g（'+mx.date.slice(5).replace("-","/")+'）':'—')+'</b></div>'; })()
+    + '<div class="note" style="margin-bottom:0">その日ぶんだけの換算です。'
+    + '記録のない日は0になります。</div></div>'
 
     + '<div class="card"><h3>脂肪換算（理論値・累積）</h3>'
     + '<div class="eqline"><span class="num v amb">約 '+Math.round(fat[fat.length-1].g).toLocaleString()+'<i>g</i></span>'
@@ -869,15 +907,23 @@ function forecastOut(){
             + '<b class="num">'+D.ymd(dt).replace(/-/g,"/")+'（'+Math.ceil(w)+'週）</b></div>'; }).join("")
       + '<div class="note" style="margin-bottom:0">ペースを上げると、この日付が前に動きます。</div></div>';
   }
-  var tbl=[50,150,250,500,1000];
+  /* 1日の上限 D.DAY_CAP を7日ぶんまで見渡せるよう刻む。
+     上限を変えても表がついてくるように、固定値ではなく比率で置く。 */
+  var cap=D.DAY_CAP*7;
+  var tbl=[28,14,7,3.5,2,1.4,1].map(function(d){ return Math.round(cap/d/10)*10; });
   return head+'<div class="card"><h3>ペース別の1年</h3>'
-    + tbl.map(function(w){ var p=D.project(S,w,365);
-        var here=Math.abs(w-pace)<=Math.min(75,pace*0.15);
+    /* 従来は許容幅75mで判定していたため、ペースが大きいとどの行も当たらず
+       強調が消えていた。最も近い1行を選ぶ。 */
+    + (function(){ var near=0;
+        tbl.forEach(function(w,i){ if(Math.abs(w-pace)<Math.abs(tbl[near]-pace)) near=i; });
+        return tbl.map(function(w,i){ var p=D.project(S,w,365);
+        var here=(i===near);
         return '<div class="bl'+(here?" hi":"")+'"><span class="nm num">週 '+w.toLocaleString()+'m</span>'
           + '<span class="ct num" style="width:auto">'+Math.round(p.m).toLocaleString()+'m ・ '
           + Math.round(p.kcal).toLocaleString()+'kcal ・ '
-          + (p.g>=1000?(Math.round(p.g/100)/10)+'kg':Math.round(p.g)+'g')+'</span></div>'; }).join("")
-    + '<div class="note" style="margin-bottom:0">いまのペースに近い行を強調しています。</div></div>';
+          + (p.g>=1000?(Math.round(p.g/100)/10)+'kg':Math.round(p.g)+'g')+'</span></div>'; }).join(""); })()
+    + '<div class="note" style="margin-bottom:0">いまのペースに最も近い行を強調しています。'
+    + '上限は1日'+D.DAY_CAP.toLocaleString()+'m × 7日ぶんです。</div></div>';
 }
 function vForecast(){
   var base=ui.paceBase||"w4", pace=fcPace(), v=ui.fcView||"mtn";
@@ -886,7 +932,7 @@ function vForecast(){
         return '<button data-pacebase="'+x[0]+'" class="'+(base===x[0]?"on":"")+'">'+x[1]+'</button>'; }).join("")+'</div>'
     + '<div class="eqline"><span class="num v" id="paceVal" style="font-size:var(--f-hero)">'
     + pace.toLocaleString()+'<i>m / 週</i></span></div>'
-    + '<input id="paceRange" type="range" min="0" max="1500" step="10" value="'+pace+'">'
+    + '<input id="paceRange" type="range" min="0" max="'+D.DAY_CAP*7+'" step="10" value="'+pace+'">'
     + '<div class="note" style="margin-bottom:0">動かすと下の結果がその場で変わります。'
     + (base!=="manual"?'（動かすと手動に切り替わります）':'')+'</div></div>'
 
