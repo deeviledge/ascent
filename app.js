@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.6";
+var BUILD="2026-08-18.7";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -345,8 +345,7 @@ function todayCard(){
         var on=(i===days.length-1);
         return '<div class="'+(on?"now":"")+'"><i style="height:'+Math.max(3,d.m/mx*54)+'px"></i>'
           + '<span>'+DOW[d.dow]+'</span></div>'; }).join("")+'</div>'
-    + towerGauge(t.m,{compact:true})
-    + nextTargets(t.m,3)
+    + rankProgress(t.m,5,3)
     + '<div class="note" style="margin-bottom:0">直近7日で '+fmt(w.m)+'m ・ '+w.kcal.toLocaleString()+'kcal ・ '+w.days+'日</div>'
     + '</div>';
 }
@@ -1063,19 +1062,27 @@ function dailyChart(rows){
    累計は「山」で見えているのに、1日ぶんは数字と棒しかなく高さとして掴めなかった。
    累計＝山、1日＝塔 と描き分けて、どちらも高さで見えるようにする。
    目盛りの天井は次に届く座。つまり「あとどれだけで次に届くか」がそのまま見える。 */
-/* 次の目標と、その次まで。いま何mで、あと何mで届くのかを並べる。 */
-function nextTargets(m,n){
-  var list=D.nextRanks(m,n||3);
-  if(!list.length) return '<div class="note" style="margin-bottom:0">全座に到達しています。</div>';
-  var LB=["次","その次","さらに次"];
-  return '<div class="nxt">'+list.map(function(x,i){
-    var lo=(i===0)?(D.reachedRank(m)?D.reachedRank(m).m:0):list[i-1].rank.m;
-    var pct=Math.max(0,Math.min(100,Math.round((m-lo)/(x.rank.m-lo)*100)));
-    return '<div'+(i===0?' class="hi"':'')+'>'
-      + '<span class="lb">'+LB[i]+'</span>'
-      + '<span class="bd"><span class="nm">'+esc(x.rank.name)+'</span>'
-      + '<span class="pb"><i style="width:'+(i===0?pct:0)+'%"></i></span></span>'
-      + '<span class="vl num">あと '+fmt(x.remain)+'<i>m</i></span></div>'; }).join("")+'</div>';
+/* 座ごとの進捗率を積む。未到達を上、到達済みを下。
+   進捗率＝その座の高さに対して今日ぶんが何%届いているか。
+   100%になったものが下に積み上がっていく。 */
+function rankProgress(m,upN,doneN){
+  var ups=D.nextRanks(m,upN||5);
+  var dones=D.RANKS.filter(function(r){ return m>=r.m; }).slice(-(doneN||3)).reverse();
+  if(!ups.length&&!dones.length)
+    return '<div class="note" style="margin-bottom:0">まだ最初の山に届いていません。</div>';
+  var row=function(r,pct,right,cls){
+    return '<div class="'+cls+'">'
+      + '<span class="nm">'+esc(r.name)+'</span>'
+      + '<span class="pb"><i style="width:'+pct+'%"></i></span>'
+      + '<span class="pc num">'+pct+'%</span>'
+      + '<span class="rm num">'+right+'</span></div>'; };
+  return '<div class="rp">'
+    + ups.map(function(x,i){
+        return row(x.rank, Math.min(100,Math.round(m/x.rank.m*100)),
+                   fmt(x.remain)+'m', i===0?"next":""); }).join("")
+    + (ups.length&&dones.length?'<div class="sep"></div>':'')
+    + dones.map(function(r){ return row(r,100,'完了',"done"); }).join("")
+    + '</div>';
 }
 function towerGauge(m,opts){
   opts=opts||{};
@@ -1146,7 +1153,7 @@ function vDaily(){
           + '<div class="eqline"><span class="num v" style="font-size:var(--f-hero)">'+fmt(tm)+'<i>m</i></span>'
           + '<span class="k">'+(rc?esc(rc.name)+' まで':'まだ最初の山に届いていません')+'</span></div>'
           + towerGauge(tm)
-          + nextTargets(tm,3)
+          + rankProgress(tm,5,3)
           + '<div class="note" style="margin-bottom:0">'
           + '累計とは別に、今日ぶんだけを塔にして見ています。</div></div>'; })()
 

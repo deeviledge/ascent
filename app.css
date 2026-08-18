@@ -562,18 +562,21 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 /* ---- 今日の塔 ---- */
 svg.twr{display:block;margin:var(--s3) auto 0;}
 
-/* ---- 次の目標（今日ぶん） ---- */
-.nxt{margin-top:var(--s3);}
-.nxt>div{display:flex;align-items:center;gap:var(--s3);padding:7px 0;
-  border-bottom:var(--hair) solid var(--hairline);}
-.nxt>div:last-child{border-bottom:none;}
-.nxt .lb{flex:0 0 44px;font-size:var(--f-2xs);color:var(--muted);}
-.nxt .bd{flex:1;min-width:0;}
-.nxt .nm{display:block;font-size:var(--f-sm);font-weight:600;
+/* ---- 座ごとの進捗率（今日ぶん） ---- */
+.rp{margin-top:var(--s3);}
+.rp>div{display:flex;align-items:center;gap:var(--s2);padding:7px 0;}
+.rp .nm{flex:1;min-width:0;font-size:var(--f-xs);color:var(--text-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.nxt .pb{display:block;height:4px;margin-top:5px;background:var(--hairline);}
-.nxt .pb i{background:var(--orange);}
-.nxt .vl{flex:0 0 auto;font-size:var(--f-sm);font-weight:700;}
-.nxt .vl i{font-style:normal;font-size:var(--f-2xs);color:var(--muted);margin-left:2px;}
-.nxt>.hi .lb{color:var(--orange);font-weight:700;}
-.nxt>.hi .nm{color:var(--orange);}
+.rp .pb{flex:0 0 64px;height:5px;background:var(--hairline);}
+.rp .pb i{background:var(--orange);}
+.rp .pc{flex:0 0 34px;text-align:right;font-size:var(--f-xs);font-weight:700;}
+.rp .rm{flex:0 0 58px;text-align:right;font-size:var(--f-2xs);color:var(--muted);}
+.rp>.next .nm{color:var(--orange);font-weight:700;}
+.rp>.next .pc{color:var(--orange);}
+.rp>.done .nm{color:var(--green);}
+.rp>.done .pb i{background:var(--green);}
+.rp>.done .pc{color:var(--green);}
+.rp>.done .rm{color:var(--green);}
+/* 未到達と到達済みの境目。ここが「いまいる高さ」になる。 */
+.rp .sep{display:block;height:0;padding:0;margin:var(--s2) 0;
+  border-top:var(--hair) dashed var(--hairline-2);}
