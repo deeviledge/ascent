@@ -1,0 +1,399 @@
+{
+  "schema_version": 1,
+  "label": "env-smoketest-cloud-container",
+  "timestamp": "2026-08-18T17:43:32.328476+00:00",
+  "timestamp_utc": "2026-08-18T17:43:32.328476+00:00",
+  "argv": [
+    "--label",
+    "env-smoketest-cloud-container",
+    "--quick",
+    "--dl-seconds",
+    "5"
+  ],
+  "env": {
+    "os": "Linux",
+    "os_release": "6.18.5-fc-v20",
+    "python": "3.11.15",
+    "hostname": "vm",
+    "machine": "x86_64",
+    "proxy_env": {
+      "HTTPS_PROXY": "http://127.0.0.1:36957",
+      "https_proxy": "http://127.0.0.1:36957"
+    },
+    "tools": {
+      "ping": false,
+      "ping6": false,
+      "traceroute": false,
+      "traceroute6": false,
+      "networkQuality": false,
+      "wdutil": false,
+      "system_profiler": false,
+      "networksetup": false,
+      "route": false,
+      "ip": false,
+      "iw": false,
+      "nmcli": false,
+      "scutil": false
+    },
+    "is_container_like": false
+  },
+  "gateway": {
+    "ip": null,
+    "interface": null
+  },
+  "wifi": {
+    "link_type": "wired_or_none",
+    "interface": null,
+    "ssid": null,
+    "bssid": null,
+    "rssi_dbm": null,
+    "noise_dbm": null,
+    "snr_db": null,
+    "tx_rate_mbps": null,
+    "rx_rate_mbps": null,
+    "phy_mode": null,
+    "channel": null,
+    "channel_width_mhz": null,
+    "band": null,
+    "source": [],
+    "notes": [
+      "無線インターフェースが存在しない (有線 or 仮想環境)."
+    ]
+  },
+  "ipv6": {
+    "global_addresses": [],
+    "has_global": false,
+    "has_default_route": false,
+    "default_route": null,
+    "reachable": false,
+    "reach_detail": "OSError: [Errno 97] Address family not supported by protocol",
+    "notes": []
+  },
+  "latency": {
+    "gateway": {
+      "name": "gateway",
+      "host": null,
+      "sent": null,
+      "received": null,
+      "loss_pct": null,
+      "avg_ms": null,
+      "max_ms": null,
+      "min_ms": null,
+      "jitter_ms": null,
+      "raw": null,
+      "error": "ターゲット未解決 (デフォルトGWが取れていない可能性)"
+    },
+    "google": {
+      "name": "google",
+      "host": "8.8.8.8",
+      "sent": null,
+      "received": null,
+      "loss_pct": null,
+      "avg_ms": null,
+      "max_ms": null,
+      "min_ms": null,
+      "jitter_ms": null,
+      "raw": null,
+      "error": "ping コマンドが無い"
+    },
+    "cloudflare": {
+      "name": "cloudflare",
+      "host": "1.1.1.1",
+      "sent": null,
+      "received": null,
+      "loss_pct": null,
+      "avg_ms": null,
+      "max_ms": null,
+      "min_ms": null,
+      "jitter_ms": null,
+      "raw": null,
+      "error": "ping コマンドが無い"
+    }
+  },
+  "traceroute": {
+    "hops": [],
+    "error": "traceroute コマンドが無い",
+    "raw": null
+  },
+  "dns": {
+    "router": {
+      "name": "router",
+      "server": null,
+      "samples": [],
+      "median_ms": null,
+      "mean_ms": null,
+      "max_ms": null,
+      "failures": 0,
+      "error": "デフォルトゲートウェイ不明のため ルーターDNSは未計測"
+    },
+    "cloudflare": {
+      "name": "cloudflare",
+      "server": "1.1.1.1",
+      "samples": [
+        {
+          "domain": "www.google.com",
+          "ms": 2.43
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 20.02
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 3.59
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 2.92
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 44.41
+        },
+        {
+          "domain": "www.google.com",
+          "ms": 4.42
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 16.43
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 30.99
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 2.87
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 16.06
+        }
+      ],
+      "median_ms": 10.24,
+      "mean_ms": 14.41,
+      "max_ms": 44.41,
+      "failures": 0,
+      "error": null
+    },
+    "google": {
+      "name": "google",
+      "server": "8.8.8.8",
+      "samples": [
+        {
+          "domain": "www.google.com",
+          "ms": 2.48
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 17.96
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 33.72
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 3.61
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 2.1
+        },
+        {
+          "domain": "www.google.com",
+          "ms": 2.32
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 2.54
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 20.27
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 2.76
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 22.96
+        }
+      ],
+      "median_ms": 3.18,
+      "mean_ms": 11.07,
+      "max_ms": 33.72,
+      "failures": 0,
+      "error": null
+    },
+    "_system_resolvers": [
+      "8.8.8.8"
+    ],
+    "system_first": {
+      "name": "system_first",
+      "server": "8.8.8.8",
+      "samples": [
+        {
+          "domain": "www.google.com",
+          "ms": 2.12
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 16.98
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 2.83
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 2.64
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 2.46
+        },
+        {
+          "domain": "www.google.com",
+          "ms": 2.73
+        },
+        {
+          "domain": "www.cloudflare.com",
+          "ms": 2.99
+        },
+        {
+          "domain": "www.wikipedia.org",
+          "ms": 2.61
+        },
+        {
+          "domain": "www.yahoo.co.jp",
+          "ms": 3.08
+        },
+        {
+          "domain": "www.amazon.co.jp",
+          "ms": 43.6
+        }
+      ],
+      "median_ms": 2.78,
+      "mean_ms": 8.2,
+      "max_ms": 43.6,
+      "failures": 0,
+      "error": null
+    }
+  },
+  "throughput": {
+    "single": {
+      "streams": 1,
+      "url": "https://speed.cloudflare.com/__down?bytes=2000000000",
+      "duration_s": 5,
+      "ramp_excluded_s": 1.0,
+      "bytes": 0,
+      "measured_window_s": 0.0,
+      "wall_s": 0.38,
+      "mbps": null,
+      "errors": [
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>"
+      ]
+    },
+    "parallel6": {
+      "streams": 6,
+      "url": "https://speed.cloudflare.com/__down?bytes=2000000000",
+      "duration_s": 5,
+      "ramp_excluded_s": 1.0,
+      "bytes": 0,
+      "measured_window_s": 0.0,
+      "wall_s": 0.58,
+      "mbps": null,
+      "errors": [
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+        "URLError: <urlopen error Tunnel connection failed: 403 Forbidden>"
+      ]
+    },
+    "chosen_url": "https://speed.cloudflare.com/__down?bytes=2000000000"
+  },
+  "bufferbloat": {
+    "loaded_latency": {
+      "idle_avg_ms": null,
+      "idle_max_ms": null,
+      "loaded_avg_ms": null,
+      "loaded_max_ms": null,
+      "increase_ms": null,
+      "approx_rpm": null,
+      "error": "アイドル遅延が取れず負荷時比較を断念"
+    },
+    "networkquality": {
+      "available": false,
+      "error": "スキップ",
+      "dl_rpm": null,
+      "ul_rpm": null
+    }
+  },
+  "verdict": {
+    "findings": [
+      {
+        "severity": "critical",
+        "code": "run_invalid",
+        "message": "デフォルトゲートウェイ・WAN 遅延・スループットのいずれかが取れていない. この結果から自宅回線のボトルネックを論じることはできない. 対象マシン上で、VPN を切った状態で再実行すること.",
+        "evidence": {
+          "missing": [
+            "bufferbloat",
+            "gateway",
+            "latency_gw",
+            "latency_wan",
+            "throughput",
+            "traceroute",
+            "wifi",
+            "wired"
+          ]
+        }
+      }
+    ],
+    "bottleneck": "判定不能: 計測が成立していない (取得できた項目: dns, ipv6)",
+    "unmeasured": [
+      "bufferbloat (数値なし)",
+      "gateway (数値なし)",
+      "latency_gw (数値なし)",
+      "latency_wan (数値なし)",
+      "throughput (数値なし)",
+      "traceroute (数値なし)",
+      "wifi (数値なし)",
+      "wired (数値なし)"
+    ],
+    "coverage": {
+      "wifi": false,
+      "wired": false,
+      "gateway": false,
+      "latency_wan": false,
+      "latency_gw": false,
+      "ipv6": true,
+      "traceroute": false,
+      "dns": true,
+      "throughput": false,
+      "bufferbloat": false,
+      "_valid_run": false,
+      "_measured": [
+        "dns",
+        "ipv6"
+      ],
+      "_missing": [
+        "bufferbloat",
+        "gateway",
+        "latency_gw",
+        "latency_wan",
+        "throughput",
+        "traceroute",
+        "wifi",
+        "wired"
+      ]
+    },
+    "run_valid": false,
+    "critical_count": 1,
+    "warn_count": 0
+  }
+}
