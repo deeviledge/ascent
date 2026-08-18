@@ -561,3 +561,19 @@ input[type=range]{width:100%;margin:var(--s3) 0 var(--s2);accent-color:var(--ora
 
 /* ---- 今日の塔 ---- */
 svg.twr{display:block;margin:var(--s3) auto 0;}
+
+/* ---- 次の目標（今日ぶん） ---- */
+.nxt{margin-top:var(--s3);}
+.nxt>div{display:flex;align-items:center;gap:var(--s3);padding:7px 0;
+  border-bottom:var(--hair) solid var(--hairline);}
+.nxt>div:last-child{border-bottom:none;}
+.nxt .lb{flex:0 0 44px;font-size:var(--f-2xs);color:var(--muted);}
+.nxt .bd{flex:1;min-width:0;}
+.nxt .nm{display:block;font-size:var(--f-sm);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nxt .pb{display:block;height:4px;margin-top:5px;background:var(--hairline);}
+.nxt .pb i{background:var(--orange);}
+.nxt .vl{flex:0 0 auto;font-size:var(--f-sm);font-weight:700;}
+.nxt .vl i{font-style:normal;font-size:var(--f-2xs);color:var(--muted);margin-left:2px;}
+.nxt>.hi .lb{color:var(--orange);font-weight:700;}
+.nxt>.hi .nm{color:var(--orange);}

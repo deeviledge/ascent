@@ -320,6 +320,14 @@ function nextRank(m){
   for(var i=0;i<RANKS.length;i++){ if(m<RANKS[i].m) return RANKS[i]; }
   return null;
 }
+/* いまの高さから上の座を n 件。次の目標だけでなく、その次まで見えるようにする。 */
+function nextRanks(m,n){
+  var out=[];
+  for(var i=0;i<RANKS.length && out.length<(n||3);i++){
+    if(m<RANKS[i].m) out.push({rank:RANKS[i], remain:RANKS[i].m-m});
+  }
+  return out;
+}
 function dailyRanks(S,days){
   return lastDays(S,days).map(function(d){
     var rc=reachedRank(d.m), nx=nextRank(d.m);
@@ -890,5 +898,5 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,NTIER:NTIER,CONF_RANK:CONF_RANK,pos:pos,tierOf
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,nextRanks:nextRanks,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
 })(typeof window!=="undefined"?window:globalThis);
