@@ -1,6 +1,6 @@
 /* app.js — 状態・描画・イベント。計算は domain.js に委ねる。 */
 "use strict";
-var BUILD="2026-08-18.8";
+var BUILD="2026-08-18.9";
 var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
@@ -1341,7 +1341,11 @@ function vHistory(){
   var byDay={};
   S.entries.forEach(function(e){ (byDay[e.date]=byDay[e.date]||[]).push(e); });
   return Object.keys(byDay).sort().reverse().map(function(dt){
-    var list=byDay[dt], sum=list.reduce(function(a,e){return a+e.meters;},0);
+    /* 時刻を出すので、その並びと一致するよう日内でも新しい順に揃える。
+       従来は S.entries の挿入順に依存していて、過去日を後から足すとずれた。 */
+    var list=byDay[dt].slice().sort(function(a,b){
+      return String(b.createdAt||"").localeCompare(String(a.createdAt||"")); });
+    var sum=list.reduce(function(a,e){return a+e.meters;},0);
     var kc=list.reduce(function(a,e){return a+D.kcalOf(S,e);},0);
     var st=list.reduce(function(a,e){return a+D.stepsOf(S,e);},0);
     var DOW=["日","月","火","水","木","金","土"][new Date(dt+"T00:00:00").getDay()];
@@ -1350,7 +1354,10 @@ function vHistory(){
       + list.map(function(e){
         return '<div class="row"><span class="mk '+(e.cat==="boss"?"boss":"")+'"></span>'
           + '<span class="bd"><span class="nm">'+esc(e.name)+'</span>'
-          + '<span class="sb num">'+fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
+          + '<span class="sb num">'
+          + (function(){ var tm=D.timeOf(e);
+              return tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · '; })()
+          + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
           + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段</span></span>'
           + '<span class="vl num">'+fmt(e.meters)+'<i>m</i></span>'
           + '<button class="x" data-edit="'+e.id+'" aria-label="編集">✎</button>'
