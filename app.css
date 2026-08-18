@@ -587,3 +587,4 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 /* ---- 履歴の記録時刻 ---- */
 .row .sb .tm{color:var(--text-2);font-weight:700;}
 .row .sb .tm.est{color:var(--muted);font-weight:400;}
+.today .t-sub .v i.fat{font-size:var(--f-2xs);color:var(--amber);margin-left:5px;}

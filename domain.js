@@ -717,6 +717,18 @@ function measureRows(S){
         dA:(prev&&prev.waistCm!=null&&m.waistCm!=null)?Math.round((m.waistCm-prev.waistCm)*10)/10:null };
     });
 }
+/* 日ごとの脂肪換算（累積ではなく、その日ぶんだけ）。 */
+function fatDaily(S,days){
+  var from=dayShift(-(days-1)), out=[], d=new Date(); d.setDate(d.getDate()-(days-1));
+  var byDay={};
+  S.entries.forEach(function(e){ if(e.date>=from) byDay[e.date]=(byDay[e.date]||0)+kcalOf(S,e); });
+  for(var i=0;i<days;i++){
+    var k=ymd(d), kc=byDay[k]||0;
+    out.push({date:k, kcal:kc, g:fatG(kc,S)});
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
 function fatCumulative(S,days){
   var from=dayShift(-(days-1)), out=[], sum=0, d=new Date(); d.setDate(d.getDate()-(days-1));
   var byDay={};
@@ -906,5 +918,5 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,NTIER:NTIER,CONF_RANK:CONF_RANK,pos:pos,tierOf
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
   today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
-  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,nextRanks:nextRanks,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,timeOf:timeOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative};
+  streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,nextRanks:nextRanks,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,timeOf:timeOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative,fatDaily:fatDaily};
 })(typeof window!=="undefined"?window:globalThis);
