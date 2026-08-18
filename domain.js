@@ -426,7 +426,7 @@ function recomputeSummits(S){
 /* ===== 内部イベント =====
    ひとつの記録から複数の出来事が起きうるので、検出と演出を分ける。 */
 var EVENT_PRIORITY={SUMMIT_COMPLETED:5,DAILY_BEST:4,MISSION_COMPLETED:3,ACHIEVEMENT_UNLOCKED:2,ENTRY_RECORDED:1};
-function snapshot(S,missionProgress){
+function snapshot(S,missionProgress,dailyDone){
   /* 累計に加えて「今日ぶん」も持つ。累計の到達と日別の到達は別の出来事として扱う。 */
   var td=today(), dm=dayStats(S,td).m, dr=reachedRank(dm);
   var by=byDate(S), pb=0;
@@ -437,7 +437,8 @@ function snapshot(S,missionProgress){
     missions:(missionProgress&&missionProgress.items||[]).filter(function(p){return p.done;})
               .map(function(p){return p.item.id;}),
     achievements:achievements(S).filter(function(a){return a.got;}).map(function(a){return a.name;}),
-    dayM:dm, dayRank:dr?dr.id:null, prevBest:pb
+    dayM:dm, dayRank:dr?dr.id:null, prevBest:pb,
+    dailyDone:!!dailyDone
   };
 }
 function nameOfRank(id){ var r=RANKS.filter(function(x){return x.id===id;})[0]; return r?r.name:""; }
@@ -463,6 +464,10 @@ function buildEvents(before,after,ctx){
   if(after.dayRank && after.dayRank!==before.dayRank){
     ev.push({type:"DAILY_RANK_REACHED",priority:0,id:after.dayRank,
              name:nameOfRank(after.dayRank),m:after.dayM});
+  }
+  /* 今日のお題を達成した瞬間。日課なのでトーストで軽く出す。 */
+  if(after.dailyDone && !before.dailyDone){
+    ev.push({type:"DAILY_TASK_DONE",priority:0});
   }
   /* 今日ぶんが過去の最高日を初めて超えた瞬間。稀なので大きく扱う。 */
   if(after.prevBest>0 && after.dayM>after.prevBest && before.dayM<=before.prevBest){
