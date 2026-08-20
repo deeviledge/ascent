@@ -5,11 +5,15 @@
    v1 : {id,date,name,unitM,reps,meters,round,kind}
    v2 : {id,date,spotId,name,segIds,unitM,reps,meters,round,cat}
    v3 : v2 + {createdAt,kcal,weightAtSave,confidence}  ＋ 各種コンテナ
+   v4 : v3 + {steps}
+   v5 : 高さを「段数×蹴上げ」優先で決めるようにしたため、過去の unitM/meters/steps を
+        引き直す必要がある。移行側は状態を持てないので pendingRecompute を立てるだけにして、
+        実際の再計算は読み込み側（D.recomputeEntries）に任せる。
 */
 (function (root) {
   "use strict";
 
-  var TARGET = 4;
+  var TARGET = 5;
   var CONF_RANK = { "実測": 4, "確定": 3, "導出": 2, "推定": 1 };
   var EPOCH_MIN = Date.UTC(2020, 0, 1);
 
@@ -26,7 +30,8 @@
 
   function detect(d) {
     if (!d || typeof d !== "object") return 0;
-    if (Number(d.schemaVersion) >= 4) return 4;
+    if (Number(d.schemaVersion) >= 5) return 5;
+    if (Number(d.schemaVersion) === 4) return 4;
     if (Number(d.schemaVersion) === 3) return 3;
     var e = (d.entries || [])[0];
     if (e && (("spotId" in e) || ("segIds" in e) || ("cat" in e))) return 2;
@@ -148,6 +153,11 @@
     if (from <= 1) { d = up1to2(d, ctx); log.push("v1→v2: kind→cat、名前から地点IDを逆引き"); }
     d = enrich(d, ctx);
     log.push("→v"+TARGET+": " + d.entries.length + "件に createdAt / kcal / weightAtSave / confidence を付与");
+
+    if (from < 5 && (d.entries || []).length) {
+      d.pendingRecompute = true;
+      log.push("v5: 高さを段数×蹴上げ優先で引き直すフラグを立てた（再計算は読み込み側で実施）");
+    }
 
     if (d.entries.length !== n0) log.push("警告: 件数が " + n0 + " → " + d.entries.length + " に変化");
 

@@ -5,7 +5,7 @@ var KEY="ascent:v2";
 var CATS=[["daily","日常"],["mall","商業・駅ビル"],["station","駅"],["boss","山・タワー"]];
 var PERIODS=[[30,"30日"],[60,"60日"],[90,"90日"],[180,"180日"],[0,"全期間"]];
 
-var S={schemaVersion:4,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{},
+var S={schemaVersion:5,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{},
   customSpots:[],missions:{},missionState:{},summits:{},measurements:[],recaps:{},
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
@@ -44,7 +44,14 @@ function load(){
       var gs=sp.segs.filter(function(g){return ids.indexOf(g.id)>=0;});
       return gs.length? D.stepsForSegs(S,sp,gs)*(reps||1) : null; }
   });
-  S=res.data; S.over=S.over||{}; D.pruneOver(S); M.ensure(S); M.ensureDaily(S); save();
+  S=res.data; S.over=S.over||{}; D.pruneOver(S);
+  if(S.pendingRecompute){
+    var rc=D.recomputeEntries(S);
+    delete S.pendingRecompute;
+    if(rc.changed) setTimeout(function(){
+      toast(rc.changed+"件の記録を引き直しました（"+rc.before+"m → "+rc.after+"m）"); },600);
+  }
+  M.ensure(S); M.ensureDaily(S); save();
   D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
   if(res.migrated){
     try{ if(res.backup&&!localStorage.getItem(KEY+":backup:pre"))
@@ -2161,10 +2168,15 @@ function saveEdit(){
   e.meters=e.unitM*e.reps;
   var w=e.weightAtSave||S.weight;
   e.kcal=D.kcalRaw(e.meters,w,e.round);
-  if(e.steps!=null&&e.unitM>0) e.steps=Math.round(e.steps/ (e.meters/e.unitM===0?1:1) );
+  /* 段数だけでなく1本あたりの高さも引き直す。
+     片方だけ現在値・片方だけ保存時の値にすると、段数と高さの関係が壊れる。 */
   var sp=D.spotOf(S,e.spotId);
   if(sp){ var gs=sp.segs.filter(function(g){ return (e.segIds||[]).indexOf(g.id)>=0; });
-    if(gs.length) e.steps=Math.round(D.stepsForSegs(S,sp,gs)*e.reps); }
+    if(gs.length){
+      var unit=gs.reduce(function(a,g){ return a+D.resolve(S,sp,g).m; },0);
+      if(unit>0){ e.unitM=unit; e.meters=unit*e.reps; e.kcal=D.kcalRaw(e.meters,w,e.round); }
+      e.steps=Math.round(D.stepsForSegs(S,sp,gs)*e.reps);
+    } }
   S.entries.sort(function(a,b){ return b.id-a.id; });
   D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S); save();
   ui.screen="history"; render(); toast("更新しました");
