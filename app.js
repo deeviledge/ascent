@@ -383,7 +383,7 @@ function spotCard(s,visited){
 /* ===== S2 記録 ===== */
 function vRecord(){
   var sp=D.spotOf(S,ui.spotId); if(!sp) return '<div class="empty">地点が見つかりません。</div>';
-  var picked=sp.segs.filter(function(g){return ui.sel[g.id];});
+  var picked=sp.segs.filter(function(g){return ui.sel[g.id]&&D.isMeasured(S,sp,g);});
   var unit=picked.reduce(function(a,g){return a+D.resolve(S,sp,g).m;},0);
   var add=unit*(Number(ui.reps)||0);
   var kc=Math.round(S.weight*add*0.01*(ui.round?1.3:1));
@@ -401,11 +401,19 @@ function vRecord(){
     + '<div class="mini"><button data-act="selAll">全区間</button><button data-act="selFree">改札外のみ</button>'
     + '<button data-act="selNone">クリア</button></div>'
     + (sp.segs.length? sp.segs.map(function(g){
-        var r=D.resolve(S,sp,g), on=!!ui.sel[g.id];
+        var meas=D.isMeasured(S,sp,g), r=D.resolve(S,sp,g), on=meas&&!!ui.sel[g.id];
+        if(!meas)
+          return '<label class="seg off"><input type="checkbox" data-seg="'+g.id+'" disabled>'
+            + '<span class="l">'+esc(g.label)+(g.paid?'<span class="paid">入場券</span>':'')+'</span>'
+            + '<span class="cf c-est">未実測</span>'
+            + '<span class="m num" style="opacity:.45">'+fmt(r.m)+'m</span></label>';
         return '<label class="seg '+(on?"on":"")+'"><input type="checkbox" data-seg="'+g.id+'" '+(on?"checked":"")+'>'
           + '<span class="l">'+esc(g.label)+(g.paid?'<span class="paid">入場券</span>':'')+'</span>'
           + '<span class="cf '+r.cls+'">'+r.conf+'</span><span class="m num">'+fmt(r.m)+'m</span></label>';
       }).join("") : '<div class="empty">区間が未登録です。</div>')
+    + (D.recordable(S,sp)?'':'<div class="note" style="margin-top:var(--s3)">'
+        + 'この地点はまだ実測がありません。段数を数えて入力すると記録できます。'
+        + '上の高さは層数×階高からの参考値です。</div>')
     + '<div class="fr" style="margin-top:var(--s4)"><label>本数</label>'
     + '<span class="stepper"><button data-act="minus">−</button>'
     + '<input id="reps" type="number" inputmode="numeric" value="'+ui.reps+'"><button data-act="plus">＋</button></span></div>'
@@ -1695,6 +1703,10 @@ function importJSON(file){
 function commit(){
   var sp=D.spotOf(S,ui.spotId); if(!sp) return;
   var picked=sp.segs.filter(function(g){return ui.sel[g.id];});
+  /* 実測が無い区間は記録させない。推定値を実績に混ぜると、あとから区別できなくなる。 */
+  var unmeasured=picked.filter(function(g){ return !D.isMeasured(S,sp,g); });
+  if(unmeasured.length)
+    return toast("「"+unmeasured[0].label+"」はまだ実測がありません。段数を入力してください。","error");
   var unit=picked.reduce(function(a,g){return a+D.resolve(S,sp,g).m;},0);
   var reps=Number(ui.reps)||0, meters=unit*reps;
   if(meters<=0) return toast("区間と本数を選ぶと記録できます。","error");
@@ -1907,7 +1919,7 @@ var ACTIONS={
   go:function(v){ ui.screen=v; if(v==="newspot") ui.draft=blankDraft();
     try{window.scrollTo(0,0);}catch(e){} render(); },
   pick:function(v){ var sp=D.spotOf(S,v); if(!sp) return;
-    ui.spotId=sp.id; ui.sel={}; sp.segs.forEach(function(g){ui.sel[g.id]=true;});
+    ui.spotId=sp.id; ui.sel={}; sp.segs.forEach(function(g){ui.sel[g.id]=D.isMeasured(S,sp,g);});
     ui.reps=1; ui.screen="record"; try{window.scrollTo(0,0);}catch(e){} render(); },
   spot:function(v){ ui.editSpot=v; ui.screen="spot"; try{window.scrollTo(0,0);}catch(e){} render(); },
   cat:function(v){ ui.cat=v; render(); },
@@ -1957,8 +1969,8 @@ var ACTS={
   hideRep:function(){ ui.hideRepeat=true; render();
     toast("バーを隠しました",null,{label:"元に戻す",fn:function(){ ui.hideRepeat=false; render(); }}); },
   theme:toggleTheme,
-  selAll:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=true;}); render(); } },
-  selFree:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=!g.paid;}); render(); } },
+  selAll:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=D.isMeasured(S,sp,g);}); render(); } },
+  selFree:function(){ var sp=D.spotOf(S,ui.spotId); if(sp){ sp.segs.forEach(function(g){ui.sel[g.id]=!g.paid&&D.isMeasured(S,sp,g);}); render(); } },
   selNone:function(){ ui.sel={}; render(); },
   minus:function(){ ui.reps=Math.max(1,Number(ui.reps)-1); render(); },
   plus:function(){ ui.reps=Number(ui.reps)+1; render(); },

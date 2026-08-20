@@ -121,6 +121,10 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
   border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);
   margin-bottom:5px;background:var(--surface-2);}
 .seg.on{border-color:var(--orange);background:var(--orange-dim);}
+/* 未実測の区間。選べないことが一目でわかる程度に落とす。 */
+.seg.off{opacity:.5;}
+.seg.off .l{text-decoration:line-through;text-decoration-thickness:1px;}
+.seg.off input[type=checkbox]{cursor:not-allowed;}
 .seg input[type=checkbox]{width:19px;height:19px;accent-color:var(--orange);flex:0 0 auto;}
 .seg .l{flex:1;min-width:0;font-size:var(--f-sm);}
 .seg .m{font-size:var(--f-md);font-weight:700;}

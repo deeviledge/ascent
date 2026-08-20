@@ -147,5 +147,74 @@ console.log("\n[6] マイグレーション v4→v5]");
   check("記録ゼロならフラグ不要", empty.data.pendingRecompute, undefined);
 })();
 
+console.log("\n[7] 実測完全優先 / 未実測は記録不可]");
+(function () {
+  var S = baseState(RISE);
+  var sp = { id:"t7", name:"テスト7", cat:"daily", area:"x", min:1,
+             segs:[{ id:"a", label:"実測あり", layers:3 },
+                   { id:"b", label:"未実測", layers:2 },
+                   { id:"c", label:"公表値のみ", layers:2, height:8.0, src:"confirmed" }] };
+  S.customSpots.push(sp);
+  D.segOvW(S, "t7", "a").steps = 81;
+  var spd = D.spotOf(S, "t7");
+
+  check("段数を入れた区間は実測", D.isMeasured(S, spd, spd.segs[0]), true);
+  check("層数だけの区間は未実測", D.isMeasured(S, spd, spd.segs[1]), false);
+  check("公表値だけの区間も未実測", D.isMeasured(S, spd, spd.segs[2]), false);
+  check("実測区間の数", D.measuredSegs(S, spd).length, 1);
+  check("この地点は記録できる", D.recordable(S, spd), true);
+
+  // 高さを実測した場合も実測として扱う
+  D.segOvW(S, "t7", "b").height = 8.5;
+  spd = D.spotOf(S, "t7");
+  check("高さの実測も実測扱い", D.isMeasured(S, spd, spd.segs[1]), true);
+
+  // 実測ゼロの地点
+  var sp2 = { id:"t7b", name:"未実測だけ", cat:"daily", area:"x", min:1,
+              segs:[{ id:"a", label:"層数のみ", layers:3 }] };
+  S.customSpots.push(sp2);
+  var spd2 = D.spotOf(S, "t7b");
+  check("実測ゼロなら記録不可", D.recordable(S, spd2), false);
+  check("参考値は出せる", D.resolve(S, spd2, spd2.segs[0]).m, 12.0);
+})();
+
+console.log("\n[8] seed は全区間が未実測（初期状態では記録不可）]");
+(function () {
+  var S = baseState(RISE);
+  var total = 0, rec = 0;
+  (window.SEED || []).forEach(function (sp0) {
+    var sp = D.spotOf(S, sp0.id); if (!sp) return;
+    total++; if (D.recordable(S, sp)) rec++;
+  });
+  check("seed 地点数 > 0", total > 0, true);
+  check("実測前に記録できる地点", rec, 0);
+
+  // 1区間だけ実測を入れれば、その地点は記録可能になる
+  var first = (window.SEED || [])[0];
+  D.segOvW(S, first.id, first.segs[0].id).steps = 100;
+  check("実測を入れれば記録可能", D.recordable(S, D.spotOf(S, first.id)), true);
+})();
+
+console.log("\n[9] 未実測を含む記録は引き直さない（凍結を守る）]");
+(function () {
+  var S = baseState(RISE);
+  var sp = { id:"t9", name:"テスト9", cat:"daily", area:"x", min:1,
+             segs:[{ id:"a", label:"実測", layers:3 }, { id:"b", label:"未実測", layers:2 }] };
+  S.customSpots.push(sp);
+  D.segOvW(S, "t9", "a").steps = 81;
+
+  S.entries.push({ id:1, date:"2026-08-01", spotId:"t9", name:"テスト9", segIds:["a"],
+                   unitM:12.0, reps:1, meters:12.0, steps:67, round:false, weightAtSave:60 });
+  S.entries.push({ id:2, date:"2026-08-01", spotId:"t9", name:"テスト9", segIds:["a","b"],
+                   unitM:20.0, reps:1, meters:20.0, steps:111, round:false, weightAtSave:60 });
+
+  var rc = D.recomputeEntries(S);
+  check("引き直したのは実測のみの1件", rc.changed, 1);
+  check("未実測を含む記録はスキップ", rc.skipped, 1);
+  check("実測のみ: 81×163mm", S.entries[0].meters, 81 * 0.163);
+  check("未実測混在: 保存時のまま", S.entries[1].meters, 20.0);
+  check("凍結された記録に legacy は付かない", S.entries[1].legacy, undefined);
+})();
+
 console.log("\n" + (FAILS.length ? "失敗: " + FAILS.join(", ") : "すべて成功"));
 process.exit(FAILS.length ? 1 : 0);
