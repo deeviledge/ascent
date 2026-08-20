@@ -304,6 +304,13 @@ function fatG(kcal,S){ return kcal/(((S.settings&&S.settings.fatKcalPerKg)||7200
 function p2(n){ return String(n).padStart(2,"0"); }
 function ymd(d){ return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
 function today(){ return ymd(new Date()); }
+/* 任意の日付から n 日ずらす。dayShift は今日基準なので、過去日を辿るのに使えない。 */
+function addDays(dt,n){ var d=new Date(dt+"T00:00:00"); d.setDate(d.getDate()+n); return ymd(d); }
+/* 記録がある最初の日。これより前へは遡らせない。 */
+function firstEntryDate(S){
+  if(!S.entries||!S.entries.length) return null;
+  return S.entries.map(function(e){return e.date;}).sort()[0];
+}
 function dayShift(n){ var d=new Date(); d.setDate(d.getDate()+n); return ymd(d); }
 
 /* ===== 分析 ===== */
@@ -962,7 +969,7 @@ root.D={RANKS:RANKS,BOUNDS:BOUNDS,NTIER:NTIER,CONF_RANK:CONF_RANK,pos:pos,tierOf
   allSpots:allSpots,spotOf:spotOf,isHidden:isHidden,setMeta:setMeta,resetMeta:resetMeta,addSeg:addSeg,updateSeg:updateSeg,removeSeg:removeSeg,hideSeg:hideSeg,isSegHidden:isSegHidden,ov:ov,segOv:segOv,ovW:ovW,segOvW:segOvW,pruneOver:pruneOver,
   riseFor:riseFor,floorHFor:floorHFor,resolve:resolve,spotTotal:spotTotal,backRise:backRise,
   stepsForSegs:stepsForSegs,kcalRaw:kcalRaw,kcalOf:kcalOf,stepsOf:stepsOf,fatG:fatG,
-  today:today,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
+  today:today,addDays:addDays,firstEntryDate:firstEntryDate,ymd:ymd,dayShift:dayShift,periodStats:periodStats,allTimeStats:allTimeStats,
   heatmap:heatmap,weekday:weekday,areaProgress:areaProgress,exploration:exploration,
   streak:streak,achievements:achievements,syncAchievements:syncAchievements,achievementView:achievementView,recomputeSummits:recomputeSummits,recomputeEntries:recomputeEntries,isMeasured:isMeasured,measuredSegs:measuredSegs,recordable:recordable,snapshot:snapshot,buildEvents:buildEvents,topEvent:topEvent,EVENT_PRIORITY:EVENT_PRIORITY,dayStats:dayStats,DAY_CAP:DAY_CAP,reachedRank:reachedRank,nextRank:nextRank,nextRanks:nextRanks,dailyRanks:dailyRanks,dayGuides:dayGuides,rankDayCounts:rankDayCounts,bestDayRank:bestDayRank,lastDays:lastDays,bestDay:bestDay,METRICS:METRICS,valOf:valOf,seriesDaily:seriesDaily,movingAvg:movingAvg,breakdown:breakdown,dowSlotMatrix:dowSlotMatrix,confBreakdown:confBreakdown,fatMilestones:fatMilestones,MILESTONES:MILESTONES,paceFrom:paceFrom,bestMonthPace:bestMonthPace,project:project,roundRatio:roundRatio,weeksToFat:weeksToFat,mountainETA:mountainETA,checkSeg:checkSeg,checkSpot:checkSpot,derive:derive,completeMult:completeMult,spotComplete:spotComplete,completeAll:completeAll,areaComplete:areaComplete,overallComplete:overallComplete,segVisits:segVisits,monthlyCerts:monthlyCerts,ghost:ghost,traverses:traverses,hourOf:hourOf,timeOf:timeOf,condStats:condStats,spotStats:spotStats,spotConfidence:spotConfidence,stairsOf:stairsOf,setStairs:setStairs,measures:measures,latestMeasure:latestMeasure,avgMeasure:avgMeasure,addMeasure:addMeasure,removeMeasure:removeMeasure,measureRows:measureRows,fatCumulative:fatCumulative,fatDaily:fatDaily};
 })(typeof window!=="undefined"?window:globalThis);

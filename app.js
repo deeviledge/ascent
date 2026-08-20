@@ -106,6 +106,7 @@ function render(){
   else if(ui.screen==="forecast") body=vForecast();
   else if(ui.screen==="stats") body=vStats();
   else if(ui.screen==="history") body=vHistory();
+  else if(ui.screen==="day") body=vDay();
   else if(ui.screen==="spots") body=vSpots();
   else if(ui.screen==="spot") body=vSpotDetail();
   else if(ui.screen==="newspot") body=vNewSpot();
@@ -130,12 +131,12 @@ function header(){
   /* サブタブで横に並んだ画面は入れ子ではないので、戻るボタンは出さない */
   var back=SUBOF[ui.screen]?null:
     {record:"home",spot:"spots",newspot:"spots",settings:"home",mission:"home",recap:"home",
-     edit:"history",mdetail:"mission"}[ui.screen];
+     edit:"history",mdetail:"mission",day:"home"}[ui.screen];
   var title={home:"VERTEX",record:"記録する",stats:"分析",history:"履歴",
     spots:"探索",spot:"地点の計測",newspot:"地点を追加",settings:"設定",
     mountains:"全行程",daily:"日別の到達",mission:"今週の遠征",recap:"週の記録",
     body:"ボディインパクト",map:"都市攻略",edit:"記録を編集",cards:"地点カード",
-    welcome:"VERTEX",presence:"垂直的存在感",mdetail:"ミッション詳細",complete:"コンプリート",energy:"エネルギー",forecast:"予測"}[ui.screen];
+    day:"日別の記録",welcome:"VERTEX",presence:"垂直的存在感",mdetail:"ミッション詳細",complete:"コンプリート",energy:"エネルギー",forecast:"予測"}[ui.screen];
   return '<div class="hd">'
     + (back?'<button class="ico" data-go="'+back+'" aria-label="戻る">'+icon("back")+'</button>':"")
     + '<div class="brand">'+esc(title)+(ui.screen==="home"?'<small>都市を、登れ。</small>':"")+'</div>'
@@ -149,7 +150,7 @@ function tabs(){
   // 地点の詳細・追加から来たときも「探索」を点灯させる
   var here={spot:"spots",newspot:"spots",record:"home",settings:"home",mission:"home",
     recap:"home",body:"stats",map:"spots",edit:"history",cards:"spots",daily:"mountains",
-    presence:"stats",mdetail:"home",welcome:"home",complete:"spots",energy:"stats",forecast:"stats"}[ui.screen]||ui.screen;
+    day:"home",presence:"stats",mdetail:"home",welcome:"home",complete:"spots",energy:"stats",forecast:"stats"}[ui.screen]||ui.screen;
   return '<nav class="tabs">'+T.map(function(t){
     return '<button data-go="'+t[0]+'" class="'+(here===t[0]?"on":"")+'">'
       +icon(t[2])+'<span>'+t[1]+'</span></button>'; }).join("")+'</nav>';
@@ -360,10 +361,13 @@ function todayCard(){
     + '</div>'
     /* 進捗率は数字の直後に置く。棒グラフを先に出すと画面外へ押し出されて見えなかった。 */
     + rankProgress(t.m,5,3)
-    + '<div class="days" style="margin-top:var(--s4)">'+days.map(function(d,i){
+    /* 曜日だけでは何日か分からないので日付も出す。棒はその日の詳細への入口。 */
+    + '<div class="days tap" style="margin-top:var(--s4)">'+days.map(function(d,i){
         var on=(i===days.length-1);
-        return '<div class="'+(on?"now":"")+'"><i style="height:'+Math.max(3,d.m/mx*54)+'px"></i>'
-          + '<span>'+DOW[d.dow]+'</span></div>'; }).join("")+'</div>'
+        return '<button class="'+(on?"now":"")+'" data-day="'+d.date+'"'
+          + ' aria-label="'+d.date.replace(/-/g,"/")+' の記録を見る">'
+          + '<i style="height:'+Math.max(3,d.m/mx*54)+'px"></i>'
+          + '<span>'+Number(d.date.slice(8))+' '+DOW[d.dow]+'</span></button>'; }).join("")+'</div>'
     + '<div class="note" style="margin-bottom:0">直近7日で '+fmt(w.m)+'m ・ '+w.kcal.toLocaleString()+'kcal ・ '+w.days+'日</div>'
     + '</div>';
 }
@@ -1431,6 +1435,47 @@ function vHistory(){
       + '</div>'; }).join("");
 }
 
+/* ===== S4b 日別の記録 =====
+   ホームの棒グラフから直接その日へ飛ぶ画面。記録が無い日も含めて1日ずつ辿れる。
+   編集・削除は履歴タブの役割なので、ここには置かない。 */
+function vDay(){
+  var dt=ui.day||D.today();
+  var a=D.dayStats(S,dt);
+  var list=S.entries.filter(function(e){ return e.date===dt; }).sort(function(x,y){
+    return String(y.createdAt||"").localeCompare(String(x.createdAt||"")); });
+  var DOW=["日","月","火","水","木","金","土"][new Date(dt+"T00:00:00").getDay()];
+  var first=D.firstEntryDate(S), prev=D.addDays(dt,-1), next=D.addDays(dt,1);
+  var canPrev=!first||prev>=first, canNext=next<=D.today();
+  function nav(to,on,label){
+    return on? '<button class="ghost" data-day="'+to+'">'+label+'</button>'
+             : '<button class="ghost" disabled>'+label+'</button>';
+  }
+  return '<div class="card"><div class="daynav">'
+    + nav(prev,canPrev,"← 前日")
+    + '<div class="dt">'+dt.replace(/-/g,"/")+'<small>（'+DOW+'）'
+    + (dt===D.today()?'<b class="tdy">今日</b>':'')+'</small></div>'
+    + nav(next,canNext,"翌日 →")
+    + '</div></div>'
+    + '<div class="card"><div class="dstat">'
+    + '<div><span class="k">獲得標高</span><span class="v num">'+fmt(a.m)+'<i>m</i></span></div>'
+    + '<div><span class="k">のぼった段数</span><span class="v num">'+a.steps.toLocaleString()+'<i>段</i></span></div>'
+    + '<div><span class="k">消費エネルギー</span><span class="v num">'+a.kcal.toLocaleString()+'<i>kcal</i></span></div>'
+    + '<div><span class="k">脂肪換算</span><span class="v num"><i class="pre">約</i>'+Math.round(D.fatG(a.kcal,S))+'<i>g</i></span></div>'
+    + '</div></div>'
+    + '<div class="card"><h3>登った施設'+(list.length?' '+list.length+'件':'')+'</h3>'
+    + (list.length? list.map(function(e){
+        return '<div class="row"><span class="mk '+(e.cat==="boss"?"boss":"")+'"></span>'
+          + '<span class="bd"><span class="nm">'+esc(e.name)+'</span>'
+          + '<span class="sb num">'
+          + (function(){ var tm=D.timeOf(e);
+              return tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · '; })()
+          + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
+          + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段</span></span>'
+          + '<span class="vl num">'+fmt(e.meters)+'<i>m</i></span></div>'; }).join("")
+      : '<div class="empty">この日は記録がありません。</div>')
+    + '</div>';
+}
+
 /* ===== S5 地点一覧 ===== */
 function vSpots(){
   var ex=D.exploration(S);
@@ -1927,6 +1972,7 @@ var ACTIONS={
     ui.spotId=sp.id; ui.sel={}; sp.segs.forEach(function(g){ui.sel[g.id]=D.isMeasured(S,sp,g);});
     ui.reps=1; ui.screen="record"; try{window.scrollTo(0,0);}catch(e){} render(); },
   spot:function(v){ ui.editSpot=v; ui.screen="spot"; try{window.scrollTo(0,0);}catch(e){} render(); },
+  day:function(v){ ui.day=v; ui.screen="day"; try{window.scrollTo(0,0);}catch(e){} render(); },
   cat:function(v){ ui.cat=v; render(); },
   per:function(v){ ui.period=Number(v); render(); },
   del:function(v){ S.entries=S.entries.filter(function(x){ return String(x.id)!==v; });
@@ -2014,7 +2060,7 @@ var ACTS={
   fixseg:function(el){ var s=ui.draft.segs[Number(el.getAttribute("data-i"))];
     s.height=el.getAttribute("data-h"); render(); }
 };
-var KEYS=["go","pick","spot","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","dper","pacebase","del","delm",
+var KEYS=["go","pick","spot","day","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","dper","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
           "rmseg","rmsegx","hideseg","showseg","act"];
 function onTap(ev){

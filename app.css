@@ -250,7 +250,7 @@ input[type=number],input[type=text]{font-family:var(--font-num);}
 .today .t-sub .v{font-size:var(--f-lg);font-weight:700;}
 .today .t-sub .v i{font-style:normal;font-size:var(--f-xs);color:var(--muted);margin-left:3px;}
 .days{display:flex;align-items:flex-end;gap:4px;height:78px;}
-.days>div{flex:1;display:grid;justify-items:center;gap:4px;align-content:end;height:100%;}
+.days>div,.days>button{flex:1;display:grid;justify-items:center;gap:4px;align-content:end;height:100%;}
 .days i{display:block;width:100%;max-width:26px;background:var(--cyan);border-radius:3px 3px 0 0;min-height:3px;}
 .days span{font-size:var(--f-2xs);color:var(--muted);}
 .days .now i{background:var(--orange);}
@@ -592,3 +592,20 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 .row .sb .tm{color:var(--text-2);font-weight:700;}
 .row .sb .tm.est{color:var(--muted);font-weight:400;}
 .today .t-sub .v i.fat{font-size:var(--f-2xs);color:var(--amber);margin-left:5px;}
+
+/* 日別の記録 */
+.days>button{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;}
+.days.tap>button:active i{filter:brightness(1.25);}
+.days.tap>button{border-radius:6px;}
+.daynav{display:flex;align-items:center;gap:var(--s3);}
+.daynav .ghost{flex:0 0 auto;width:auto;padding:8px 12px;font-size:var(--f-sm);white-space:nowrap;}
+.daynav .ghost[disabled]{opacity:.35;}
+.daynav .dt{flex:1;min-width:0;text-align:center;font-size:var(--f-lg);font-weight:700;}
+.daynav .dt small{display:block;font-size:var(--f-2xs);font-weight:400;color:var(--muted);}
+.daynav .dt .tdy{color:var(--orange);margin-left:6px;}
+.dstat{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);}
+.dstat>div{display:grid;gap:2px;}
+.dstat .k{font-size:var(--f-2xs);color:var(--muted);}
+.dstat .v{font-size:var(--f-xl);font-weight:700;}
+.dstat .v i.pre{margin:0 2px 0 0;}
+.dstat .v i{font-style:normal;font-size:var(--f-sm);color:var(--muted);margin-left:2px;}

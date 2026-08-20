@@ -126,7 +126,10 @@ function profile(t,fmtM){
      そのため密集地帯では3個ごとに必ず同じ段へ戻り、確実に再衝突していた。
      ここでは文字幅を見積もり、段ごとに「使用済みの右端」を持って左から詰める。
      どの段にも入らないものはラベルを出さず、点だけ残す（名前は下の一覧で読める）。 */
-  var LV_H=28, MAXLV=24, GAP=9;
+  /* ラベルの文字を小さくすると、1行に収まる数が増えて段数が減り、
+     図全体の縦幅も縮む。文字サイズ・行高・すき間はまとめてここで決める。 */
+  var F_NAME=9.5, F_SUB=8.5, SUB_DY=10;
+  var LV_H=21, MAXLV=24, GAP=7;
   function textW(s,fs){
     var w=0;
     for(var i=0;i<s.length;i++){
@@ -141,14 +144,14 @@ function profile(t,fmtM){
      同じ行のラベルは必ず同じ y になり、行ごとの区間判定だけで衝突を防げる。
      現在地（次の目標）と直前に登った座は最優先で場所を確保する。
      旗が指している座の名前が消えるのがいちばん困るため。 */
-  function rowY(n){ return BASE-25-n*LV_H; }
+  function rowY(n){ return BASE-20-n*LV_H; }
   var lv0=R.filter(function(r){ return r.m>t; })[0];
   var lvDone=null;
   R.forEach(function(r){ if(r.m<=t) lvDone=r; });
   var items=R.map(function(r,i){
     var done=t>=r.m, sub=r.m.toLocaleString()+' m'+(done?" 登頂":"");
     return { r:r, i:i, x:X(r.m), y:peakY(r.m), done:done, sub:sub,
-             w:Math.max(textW(r.name,12), textW(sub,10.5)) };
+             w:Math.max(textW(r.name,F_NAME), textW(sub,F_SUB)) };
   });
   var order=items.slice().sort(function(p,q){
     var pp=(p.r===lv0?0:p.r===lvDone?1:2), qq=(q.r===lv0?0:q.r===lvDone?1:2);
@@ -178,12 +181,12 @@ function profile(t,fmtM){
     if(n==null) return;
     var ty=rowY(n);
     if(ty<y-11) marks+='<line x1="'+x+'" y1="'+(y-7)+'" x2="'+x+'" y2="'+(ty+7)+'" stroke="var(--hairline-2)" stroke-width="1"/>';
-    labels+='<text x="'+x+'" y="'+ty+'" fill="'+(it.done?"var(--green)":"var(--text-2)")+'" font-size="12" font-weight="700" text-anchor="middle">'+it.r.name+'</text>'
-      + '<text x="'+x+'" y="'+(ty+13)+'" fill="var(--muted)" font-size="10.5" text-anchor="middle">'+it.sub+'</text>';
+    labels+='<text x="'+x+'" y="'+ty+'" fill="'+(it.done?"var(--green)":"var(--text-2)")+'" font-size="'+F_NAME+'" font-weight="700" text-anchor="middle">'+it.r.name+'</text>'
+      + '<text x="'+x+'" y="'+(ty+SUB_DY)+'" fill="var(--muted)" font-size="'+F_SUB+'" text-anchor="middle">'+it.sub+'</text>';
   });
   var peaks=marks+labels;
   /* 段を積んだぶん上にはみ出すので、その分だけ viewBox を上へ広げる */
-  var VT=Math.min(0, minTy-14), VH=H+22-VT;
+  var VT=Math.min(0, minTy-11), VH=H+22-VT;
   return '<svg class="prof" width="'+W+'" height="'+VH+'" viewBox="0 '+VT+' '+W+' '+VH+'">'
     + '<defs><clipPath id="pdone"><rect x="0" y="0" width="'+fx+'" height="'+H+'"/></clipPath>'
     + '<linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">'
