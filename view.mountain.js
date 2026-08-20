@@ -128,8 +128,8 @@ function profile(t,fmtM){
      どの段にも入らないものはラベルを出さず、点だけ残す（名前は下の一覧で読める）。 */
   /* ラベルの文字を小さくすると、1行に収まる数が増えて段数が減り、
      図全体の縦幅も縮む。文字サイズ・行高・すき間はまとめてここで決める。 */
-  var F_NAME=9.5, F_SUB=8.5, SUB_DY=10;
-  var LV_H=21, MAXLV=24, GAP=7;
+  var F_NAME=8, F_SUB=7, SUB_DY=8.5;
+  var LV_H=17, MAXLV=24, GAP=6;
   function textW(s,fs){
     var w=0;
     for(var i=0;i<s.length;i++){
@@ -144,7 +144,7 @@ function profile(t,fmtM){
      同じ行のラベルは必ず同じ y になり、行ごとの区間判定だけで衝突を防げる。
      現在地（次の目標）と直前に登った座は最優先で場所を確保する。
      旗が指している座の名前が消えるのがいちばん困るため。 */
-  function rowY(n){ return BASE-20-n*LV_H; }
+  function rowY(n){ return BASE-17-n*LV_H; }
   var lv0=R.filter(function(r){ return r.m>t; })[0];
   var lvDone=null;
   R.forEach(function(r){ if(r.m<=t) lvDone=r; });
@@ -158,6 +158,13 @@ function profile(t,fmtM){
     return pp-qq || p.i-q.i;
   });
   var occ={}, minTy=1e9, dropped=0, rowOf={};
+  /* 現在地の旗はラベルより後に描かれるので、旗の下に文字が入ると隠れる。
+     旗が占める範囲をあらかじめ埋まっている扱いにして、そこを避けさせる。 */
+  var flagL=fx-4, flagR=fx+30, flagTop=fy-40, flagBot=fy+2;
+  for(var fn=0;fn<MAXLV;fn++){
+    var fy0=rowY(fn)-F_NAME, fy1=rowY(fn)+SUB_DY+2;
+    if(fy0<flagBot&&flagTop<fy1){ occ[fn]=occ[fn]||[]; occ[fn].push([flagL,flagR]); }
+  }
   order.forEach(function(it){
     var L=it.x-it.w/2, Rt=it.x+it.w/2;
     var n0=Math.ceil((BASE-it.y)/LV_H), n=-1;
@@ -186,7 +193,7 @@ function profile(t,fmtM){
   });
   var peaks=marks+labels;
   /* 段を積んだぶん上にはみ出すので、その分だけ viewBox を上へ広げる */
-  var VT=Math.min(0, minTy-11), VH=H+22-VT;
+  var VT=Math.min(0, minTy-9), VH=H+22-VT;
   return '<svg class="prof" width="'+W+'" height="'+VH+'" viewBox="0 '+VT+' '+W+' '+VH+'">'
     + '<defs><clipPath id="pdone"><rect x="0" y="0" width="'+fx+'" height="'+H+'"/></clipPath>'
     + '<linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">'
