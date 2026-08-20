@@ -48,8 +48,13 @@ function load(){
   if(S.pendingRecompute){
     var rc=D.recomputeEntries(S);
     delete S.pendingRecompute;
-    if(rc.changed) setTimeout(function(){
-      toast(rc.changed+"件の記録を引き直しました（"+rc.before+"m → "+rc.after+"m）"); },600);
+    /* 据え置きになった件数も出す。黙って一部だけ直すと、直ったのか直っていないのか
+       利用者が判断できない。 */
+    if(rc.changed||rc.skipped) setTimeout(function(){
+      var msg=rc.changed?rc.changed+"件の記録を引き直しました（"+rc.before+"m → "+rc.after+"m）"
+                        :"引き直しの必要はありませんでした";
+      if(rc.skipped) msg+="。"+rc.skipped+"件は実測が無いため据え置きです";
+      toast(msg); },600);
   }
   M.ensure(S); M.ensureDaily(S); save();
   D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
