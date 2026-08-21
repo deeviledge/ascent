@@ -45,12 +45,16 @@ function load(){
       return gs.length? D.stepsForSegs(S,sp,gs)*(reps||1) : null; }
   });
   S=res.data; S.over=S.over||{}; D.pruneOver(S);
-  if(S.pendingRecompute){
+  /* 毎回引き直す。移行時の1回だけにしていたせいで、あとから計測を直しても
+     記録が古いまま取り残されていた。計測値と一致していれば何も書き換わらないので、
+     繰り返し実行しても害はない。 */
+  {
+    var announce=!!S.pendingRecompute;
     var rc=D.recomputeEntries(S);
     delete S.pendingRecompute;
     /* 据え置きになった件数も出す。黙って一部だけ直すと、直ったのか直っていないのか
        利用者が判断できない。 */
-    if(rc.changed||rc.skipped) setTimeout(function(){
+    if(rc.changed||(announce&&rc.skipped)) setTimeout(function(){
       var msg=rc.changed?rc.changed+"件の記録を引き直しました（"+rc.before+"m → "+rc.after+"m）"
                         :"引き直しの必要はありませんでした";
       if(rc.skipped) msg+="。"+rc.skipped+"件は実測が無いため据え置きです";
