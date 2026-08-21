@@ -1713,10 +1713,28 @@ function vSettings(){
     + '<div class="mini"><button data-act="expJ">書き出す</button><button data-act="impJ">読み込む</button></div>'
     + '<input id="impF" type="file" accept="application/json,.json" style="display:none"></div>'
 
+    + '<div class="card"><h3>記録の引き直し</h3>'
+    + '<div class="note">段数や蹴上げを測り直したとき、その地点の記録は自動で引き直されます。'
+    + 'それでも古い基準のまま残っている記録があれば、ここで全件を今の計測値で計算し直せます。'
+    + '元の値は各記録に退避されるので、消えることはありません。</div>'
+    + '<div class="mini"><button data-act="recalc">全記録を引き直す</button></div></div>'
+
     + '<div class="card"><h3>計算について</h3><div class="note">'
     + '消費エネルギー ＝ 体重 × 獲得標高 × 0.01。下りも歩いた場合は ×1.3。<br>'
     + '実測＝自分で測った ／ 確定＝公表値 ／ 導出＝確定値からの計算 ／ 推定＝基準値からの仮置き。'
     + '</div></div>';
+}
+
+/* 計測を直したら、その地点の過去の記録もその場で引き直す。
+   引き直しは移行時の1回しか走らないので、あとから測り直しても過去が古いままだった。 */
+function afterMeasure(spotId){
+  var rc=D.recomputeEntries(S,spotId);
+  D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
+  save(); render();
+  toast(rc.changed
+    ? "保存しました。過去の記録 "+rc.changed+"件を引き直しました（"
+      +rc.before+"m → "+rc.after+"m）"
+    : "保存しました");
 }
 
 /* ===== バックアップ ===== */
@@ -2031,6 +2049,18 @@ var ACTS={
   recapSeen:function(){ var k=ui.recapWeek||M.prevWeek(M.currentWeek());
     S.recaps=S.recaps||{}; S.recaps[k]={seen:true,at:new Date().toISOString()};
     save(); ui.screen="home"; render(); },
+  recalc:function(){
+    var n=S.entries.length;
+    if(!n) return toast("記録がありません。","error");
+    if(!confirm("全"+n+"件を、いまの計測値で計算し直します。\n\n元の値は各記録に退避されるので戻せます。続けますか？")) return;
+    var rc=D.recomputeEntries(S);
+    D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
+    save(); render();
+    toast(rc.changed
+      ? rc.changed+"件を引き直しました（"+rc.before+"m → "+rc.after+"m）"
+        +(rc.skipped?"。"+rc.skipped+"件は実測が無いため据え置き":"")
+      : "引き直しの必要はありませんでした");
+  },
   expJ:exportJSON,
   impJ:function(){ var f=$("impF"); if(f) f.click(); },
   hardReload:hardReload,
@@ -2162,11 +2192,11 @@ function bind(){
     qa(".sIn").forEach(function(i){ i.onchange=function(e){
       var o=D.ovW(S,ui.editSpot), k=i.dataset.k, v=num(e.target.value);
       if(v==null) delete o[k]; else o[k]=(k==="rise")?v/1000:v;
-      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+      D.pruneOver(S); afterMeasure(ui.editSpot); }; });
     qa(".gIn").forEach(function(i){ i.onchange=function(e){
       var so=D.segOvW(S,ui.editSpot,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
       if(v==null) delete so[k]; else so[k]=(k==="rise")?v/1000:v;
-      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+      D.pruneOver(S); afterMeasure(ui.editSpot); }; });
     qa(".mIn").forEach(function(i){ i.onchange=function(e){
       var k=i.dataset.k, v=e.target.value.trim();
       D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));

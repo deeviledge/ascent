@@ -265,9 +265,12 @@ function stepsForSegs(S,sp,gs){
 /* 記録は unitM（1本あたりの高さ）を保存時に凍結している。
    高さの決め方を変えても過去は動かないので、明示的に引き直す必要がある。
    元の値は legacy に退避して、取り返しがつかない書き換えにはしない。 */
-function recomputeEntries(S){
+/* spotId を渡すとその地点の記録だけを引き直す。計測を直した直後に、
+   関係する記録だけを黙って正すために使う。省略時は全件。 */
+function recomputeEntries(S,spotId){
   var changed=0, before=0, after=0, skipped=0;
   (S.entries||[]).forEach(function(e){
+    if(spotId&&e.spotId!==spotId) return;
     before+=e.meters||0;
     var sp=spotOf(S,e.spotId);
     if(!sp){ after+=e.meters||0; skipped++; return; }
