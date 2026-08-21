@@ -609,3 +609,11 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 .dstat .v{font-size:var(--f-xl);font-weight:700;}
 .dstat .v i.pre{margin:0 2px 0 0;}
 .dstat .v i{font-style:normal;font-size:var(--f-sm);color:var(--muted);margin-left:2px;}
+
+/* 区間ごとの計測（修整モード） */
+.mhd{display:flex;align-items:center;gap:8px;margin-bottom:var(--s2);}
+.mhd h3{flex:1;}
+.sgbox{border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);
+  padding:var(--s3);margin-bottom:var(--s2);}
+.sgval{font-size:var(--f-2xs);color:var(--muted);margin-top:6px;line-height:1.5;}
+.sgval b{color:var(--text-2);font-weight:700;}

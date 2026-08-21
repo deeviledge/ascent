@@ -10,7 +10,8 @@ var S={schemaVersion:5,entries:[],weight:60,baseRise:0.18,baseFloorH:4.0,over:{}
   settings:{fatKcalPerKg:7200,theme:"dark"}};
 
 var ui={screen:"home",tab:"home",cat:"mall",spotId:null,sel:{},reps:1,round:true,
-  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn",sView:"sum",dPeriod:30};
+  editSpot:null,period:30,draft:null,summitFx:null,undo:null,cFilter:"live",fcView:"mtn",sView:"sum",dPeriod:30,
+  fixMode:false};
 
 /* ===== サブタブ =====
    分析と探索は中身が多い。以前は画面の最下部のボタンから奥へ潜る構造だったが、
@@ -1550,33 +1551,40 @@ function vSpotDetail(){
 
     + '<div class="card"><h3>この施設に一括適用</h3>'
     + '<div class="fr"><label>蹴上げ（1段）</label><input class="sIn" data-k="rise" type="number" inputmode="decimal" value="'
-    + (o.rise?Math.round(o.rise*1000):"")+'" placeholder="'+Math.round(S.baseRise*1000)+'"><span class="u">mm</span></div>'
+    + (o.rise?r1v(o.rise*1000):"")+'" placeholder="'+Math.round(S.baseRise*1000)+'"><span class="u">mm</span></div>'
     + '<div class="fr"><label>階高（1層）</label><input class="sIn" data-k="floorH" type="number" inputmode="decimal" value="'
     + (o.floorH||"")+'" placeholder="'+r1(f.v)+'"><span class="u">m</span></div>'
     + '<div class="note">空欄なら上位の基準値が使われます。</div></div>'
 
-    + '<div class="card"><h3>区間ごとの計測</h3>'
+    + '<div class="card" id="measCard"><div class="mhd"><h3 style="margin:0">区間ごとの計測</h3>'
+    + '<button class="chip '+(ui.fixMode?"on":"")+'" data-act="fixmode">'
+    + (ui.fixMode?"修整モード 入":"修整する")+'</button></div>'
+    + (ui.fixMode
+        ? '<div class="note">段数と蹴上げを直せます。公表値（確定）の区間でも、実測を入れればそちらが必ず優先されます。'
+          + '欄を空にすると、その値だけ消えます。</div>'
+        : '<div class="note" style="margin-bottom:var(--s3)">いま入っている値を表示しています。'
+          + '直すときは「修整する」を押してください。</div>')
     + sp.segs.map(function(g){
-        var so=D.segOv(S,sp.id,g.id), r=D.resolve(S,sp,g), br=D.backRise(S,sp,g);
-        return '<div style="border:var(--hair) solid var(--hairline);border-radius:var(--r-sm);padding:var(--s3);margin-bottom:var(--s2)">'
+        var so=D.segOv(S,sp.id,g.id), r=D.resolve(S,sp,g);
+        return '<div class="sgbox" id="sgbox-'+g.id+'">'
           + '<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:var(--f-sm);font-weight:600">'+esc(g.label)
           + (g.added?' <span class="cf c-meas">追加</span>':'')+'</span>'
-          + '<span class="cf '+r.cls+'">'+r.conf+'</span><span class="num" style="font-weight:700">'+fmt(r.m)+'m</span></div>'
+          + '<span class="cf '+r.cls+'" id="sgcf-'+g.id+'">'+r.conf+'</span>'
+          + '<span class="num" id="sgm-'+g.id+'" style="font-weight:700">'+fmt(r.m)+'m</span></div>'
+          + '<div class="sgval" id="sgv-'+g.id+'">'+measLine(sp,g)+'</div>'
           + (function(){ var v=D.segVisits(S,sp.id)[g.id]||0;
               return v? '<div class="sb num" style="font-size:var(--f-2xs);color:var(--muted);margin-top:5px">この区間 '+v+'回</div>':''; })()
-          + '<div class="segops">'
-          + (g.added
-              ? '<button data-rmsegx="'+g.id+'">この区間を削除</button>'
-              : '<button data-hideseg="'+g.id+'">この区間を隠す</button>')
-          + '</div>'
-          + '<div class="tri"><div><span>段数</span><input class="gIn" data-g="'+g.id+'" data-k="steps" type="number" inputmode="numeric" value="'+(so.steps||"")+'" placeholder="—"></div>'
-          + '<div><span>蹴上げ mm</span><input class="gIn" data-g="'+g.id+'" data-k="rise" type="number" inputmode="decimal" value="'+(so.rise?Math.round(so.rise*1000):"")+'" placeholder="—"></div>'
-          + '<div><span>高さ m</span><input class="gIn" data-g="'+g.id+'" data-k="height" type="number" inputmode="decimal" value="'+(so.height||"")+'" placeholder="—"></div></div>'
-          + (br?'<div class="hint">逆算 → 蹴上げ '+Math.round(br*1000)+'mm'
-            + '<button data-base="'+Math.round(br*1000)+'">これを基準値にする</button></div>':'')
+          + (ui.fixMode
+            ? '<div class="tri"><div><span>段数</span><input class="gIn" data-g="'+g.id+'" data-k="steps" type="number" inputmode="numeric" value="'+(so.steps||"")+'" placeholder="—"></div>'
+              + '<div><span>蹴上げ mm</span><input class="gIn" data-g="'+g.id+'" data-k="rise" type="number" inputmode="decimal" value="'+(so.rise?r1v(so.rise*1000):"")+'" placeholder="—"></div>'
+              + '<div><span>高さ m</span><input class="gIn" data-g="'+g.id+'" data-k="height" type="number" inputmode="decimal" value="'+(so.height||"")+'" placeholder="—"></div></div>'
+              + '<div class="hint" id="sgh-'+g.id+'">'+backHint(sp,g)+'</div>'
+              + '<div class="segops" id="sgo-'+g.id+'">'+segOps(sp,g)+'</div>'
+            : '')
           + '</div>'; }).join("")
-    + segAdder(sp)
-    + '<button class="ghost" data-clear="'+sp.id+'">計測した値をすべて消す</button></div>'
+    + (ui.fixMode? segAdder(sp)
+        + '<button class="ghost" data-clear="'+sp.id+'">この地点の計測値をすべて消す</button>' : '')
+    + '</div>'
 
     + '<div class="card"><h3>使わないとき</h3>'
     + (D.isHidden(S,sp.id)
@@ -1587,6 +1595,66 @@ function vSpotDetail(){
     + (sp.isCustom?'<div class="note" style="margin-top:var(--s4)">自分で追加した地点は完全に削除できます。計測した値も消えます。</div>'
         +'<button class="ghost" data-delspot="'+sp.id+'" style="border-color:var(--danger);color:var(--danger)">この地点を完全に削除</button>':'')
     + '</div>';
+}
+
+/* いま何が保存されているのかを一行で見せる。以前は入力欄を見ないと分からず、
+   値が消えていても「確定」バッジしか出ないので気づけなかった。 */
+function measLine(sp,g){
+  var so=D.segOv(S,sp.id,g.id), rr=D.riseFor(S,sp,g), p=[];
+  if(so.steps){
+    p.push(so.steps+'段');
+    p.push('蹴上げ '+r1v((so.rise||rr.v)*1000)+'mm'
+      + (so.rise?'' : rr.lv==="spot"?'（施設の一括値）':'（基準値）'));
+  }
+  if(so.height) p.push('高さ '+so.height+'m'+(so.steps?'（段数×蹴上げを優先）':''));
+  if(!p.length) return '<b>未入力</b>　右の高さは公表値や層数×階高からの参考値です。';
+  return '入力済み　'+p.join(' × ');
+}
+/* 逆算は「高さ ÷ 段数」。蹴上げを実際に測ってあるなら、逆算はそれと食い違うだけで
+   害しかない（公表値 18m ÷ 29段 = 620mm のような値を基準値に薦めてしまう）。
+   実測の蹴上げがある区間では出さない。出すときは、どの高さから割ったのかを書く。 */
+function backHint(sp,g){
+  var so=D.segOv(S,sp.id,g.id);
+  if(so.rise) return '';
+  var br=D.backRise(S,sp,g); if(!br) return '';
+  return '逆算 → 蹴上げ '+r1v(br*1000)+'mm（'+(so.height?'実測の高さ':'公表の高さ')+' ÷ 段数）'
+    + '<button data-base="'+Math.round(br*1000)+'">これを基準値にする</button>';
+}
+/* 修整モードの操作ボタン。計測の有無で「消す」が出たり消えたりするので、
+   入力のたびに組み直せるよう切り出してある。 */
+function segOps(sp,g){
+  return (D.isMeasured(S,sp,g)?'<button data-segclear="'+g.id+'">この区間の計測を消す</button>':'')
+    + (g.added
+        ? '<button data-rmsegx="'+g.id+'">この区間を削除</button>'
+        : '<button data-hideseg="'+g.id+'">この区間を隠す</button>');
+}
+/* 入力のたびに render() すると、次の欄をタップした瞬間に DOM ごと作り直され、
+   そのタップが宙に消える。実際にそれで段数と蹴上げが入れ替わって保存されていた。
+   だから編集中は作り直さず、変わったところだけ書き換える。 */
+function syncSeg(gid){
+  var sp=D.spotOf(S,ui.editSpot); if(!sp) return;
+  var g=sp.segs.filter(function(x){ return x.id===gid; })[0]; if(!g) return;
+  var r=D.resolve(S,sp,g);
+  var cf=$("sgcf-"+gid); if(cf){ cf.className="cf "+r.cls; cf.textContent=r.conf; }
+  var mv=$("sgm-"+gid); if(mv) mv.textContent=fmt(r.m)+"m";
+  var vv=$("sgv-"+gid); if(vv) vv.innerHTML=measLine(sp,g);
+  var hh=$("sgh-"+gid); if(hh) hh.innerHTML=backHint(sp,g);
+  var op=$("sgo-"+gid); if(op){ op.innerHTML=segOps(sp,g); }
+}
+function syncAllSegs(){
+  var sp=D.spotOf(S,ui.editSpot); if(!sp) return;
+  sp.segs.forEach(function(g){ syncSeg(g.id); });
+}
+/* 画面上部の合計などは作り直さないと直らないので、
+   編集の手が止まってから、フォーカスがカードの外に出ているときだけ引き直す。 */
+var lazyT=null;
+function lazyRender(){
+  clearTimeout(lazyT);
+  lazyT=setTimeout(function(){
+    var a=document.activeElement;
+    if(a&&a.closest&&a.closest("#measCard")){ lazyRender(); return; }
+    render();
+  },900);
 }
 
 function segAdder(sp){
@@ -1731,10 +1799,11 @@ function vSettings(){
 
 /* 計測を直したら、その地点の過去の記録もその場で引き直す。
    引き直しは移行時の1回しか走らないので、あとから測り直しても過去が古いままだった。 */
-function afterMeasure(spotId){
+function afterMeasure(spotId,noRender){
   var rc=D.recomputeEntries(S,spotId);
   D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
-  save(); render();
+  save();
+  if(noRender) lazyRender(); else render();
   toast(rc.changed
     ? "保存しました。過去の記録 "+rc.changed+"件を引き直しました（"
       +rc.before+"m → "+rc.after+"m）"
@@ -1999,9 +2068,26 @@ var ACTIONS={
   per:function(v){ ui.period=Number(v); render(); },
   del:function(v){ S.entries=S.entries.filter(function(x){ return String(x.id)!==v; });
     D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); save(); render(); },
-  base:function(v){ S.baseRise=Number(v)/1000; save(); render();
-    toast("基準の蹴上げを "+v+"mm にしました"); },
-  clear:function(v){ delete S.over[v]; save(); render(); toast("設定を消しました"); },
+  /* 基準蹴上げは、蹴上げを入れていない全区間に効く。取り違えると全体が狂うので確認する。 */
+  base:function(v){
+    if(!confirm("基準の蹴上げを "+v+"mm にします。\n蹴上げを入れていない全地点の高さが変わり、\n過去の記録も引き直されます。続けますか？")) return;
+    S.baseRise=Number(v)/1000;
+    var rc=D.recomputeEntries(S);
+    D.recomputeSummits(S); M.ensure(S); M.ensureDaily(S); D.syncAchievements(S);
+    save(); render();
+    toast(rc.changed
+      ? "基準の蹴上げを "+v+"mm にしました。記録 "+rc.changed+"件を引き直しました（"+rc.before+"m → "+rc.after+"m）"
+      : "基準の蹴上げを "+v+"mm にしました"); },
+  /* 以前はこれが S.over[v] ごと消していて、名前やエリア、階段の有無、追加した区間まで
+     一緒に失われていた。消すのは計測した値だけにする。 */
+  clear:function(v){
+    if(!confirm("この地点の段数・蹴上げ・高さをすべて消します。\n名前や過去の記録は残ります。続けますか？")) return;
+    var o=S.over[v]; if(!o){ toast("消す値がありません"); return; }
+    delete o.rise; delete o.floorH;
+    Object.keys(o.segs||{}).forEach(function(gid){
+      var so=o.segs[gid]||{}; delete so.steps; delete so.rise; delete so.height; });
+    D.pruneOver(S); afterMeasure(v); },
+
   hide:function(v){ D.ovW(S,v).hidden=true; save(); ui.screen="spots"; render();
     toast("一覧から隠しました",null,{label:"取り消す",fn:function(){
       if(S.over[v]) delete S.over[v].hidden; D.pruneOver(S); save(); render(); }}); },
@@ -2026,6 +2112,13 @@ var ACTIONS={
   delm:function(v){ D.removeMeasure(S,v); save(); render(); toast("削除しました"); },
   stairs:function(v){ D.setStairs(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("保存しました"); },
   mid:function(v){ ui.missionId=v; ui.screen="mdetail"; try{window.scrollTo(0,0);}catch(e){} render(); },
+  /* 区間ごとに計測を取り消せるようにする。地点まるごとしか消せないと、
+     一箇所間違えただけで全部入れ直すことになる。 */
+  segclear:function(v){
+    var so=D.segOvW(S,ui.editSpot,v);
+    delete so.steps; delete so.rise; delete so.height;
+    D.pruneOver(S); afterMeasure(ui.editSpot);
+    toast("この区間の計測を消しました"); },
   rmsegx:function(v){ if(!confirm("この区間を削除します。よろしいですか？")) return;
     D.removeSeg(S,ui.editSpot,v); D.pruneOver(S); save(); render(); toast("削除しました"); },
   hideseg:function(v){ D.hideSeg(S,ui.editSpot,v,true); save(); render();
@@ -2038,6 +2131,8 @@ var ACTIONS={
   act:function(v,el){ (ACTS[v]||function(){})(el); }
 };
 var ACTS={
+  fixmode:function(){ ui.fixMode=!ui.fixMode; render();
+    toast(ui.fixMode?"修整モードにしました。段数と蹴上げを直せます":"修整モードを終わりました"); },
   again:repeatLast,
   hideRep:function(){ ui.hideRepeat=true; render();
     toast("バーを隠しました",null,{label:"元に戻す",fn:function(){ ui.hideRepeat=false; render(); }}); },
@@ -2096,7 +2191,7 @@ var ACTS={
 };
 var KEYS=["go","pick","spot","day","cat","per","bper","eper","metric","breakby","cfil","fcv","sv","dper","pacebase","del","delm",
           "edit","mid","base","clear","hide","show","delspot","mcat","resetmeta","dcat","stairs",
-          "rmseg","rmsegx","hideseg","showseg","act"];
+          "rmseg","rmsegx","hideseg","showseg","segclear","act"];
 function onTap(ev){
   for(var i=0;i<KEYS.length;i++){
     var el=closestData(ev.target,"data-"+KEYS[i]);
@@ -2196,15 +2291,15 @@ function bind(){
     qa(".sIn").forEach(function(i){ i.onchange=function(e){
       var o=D.ovW(S,ui.editSpot), k=i.dataset.k, v=num(e.target.value);
       if(v==null) delete o[k]; else o[k]=(k==="rise")?v/1000:v;
-      D.pruneOver(S); afterMeasure(ui.editSpot); }; });
+      D.pruneOver(S); afterMeasure(ui.editSpot,true); syncAllSegs(); }; });
     qa(".gIn").forEach(function(i){ i.onchange=function(e){
       var so=D.segOvW(S,ui.editSpot,i.dataset.g), k=i.dataset.k, v=num(e.target.value);
       if(v==null) delete so[k]; else so[k]=(k==="rise")?v/1000:v;
-      D.pruneOver(S); afterMeasure(ui.editSpot); }; });
+      D.pruneOver(S); afterMeasure(ui.editSpot,true); syncSeg(i.dataset.g); }; });
     qa(".mIn").forEach(function(i){ i.onchange=function(e){
       var k=i.dataset.k, v=e.target.value.trim();
       D.setMeta(S,ui.editSpot,k,(k==="min")?(num(v)||null):(v||null));
-      D.pruneOver(S); save(); render(); toast("保存しました"); }; });
+      D.pruneOver(S); save(); lazyRender(); toast("保存しました"); }; });
     qa(".dIn").forEach(function(i){ i.onchange=function(e){ ui.draft[i.dataset.k]=e.target.value; render(); }; });
     qa(".aIn").forEach(function(i){ i.onchange=function(e){
       ui.segDraft=ui.segDraft||{label:"",layers:"",steps:"",rise:"",height:""};
