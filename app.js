@@ -1582,8 +1582,15 @@ function vSpotDetail(){
               + '<div class="segops" id="sgo-'+g.id+'">'+segOps(sp,g)+'</div>'
             : '')
           + '</div>'; }).join("")
-    + (ui.fixMode? segAdder(sp)
-        + '<button class="ghost" data-clear="'+sp.id+'">この地点の計測値をすべて消す</button>' : '')
+    + hiddenSegs(sp)
+    + (ui.fixMode? '<button class="ghost" data-clear="'+sp.id+'">この地点の計測値をすべて消す</button>':'')
+    + '</div>'
+
+    /* 区間の追加は「消す・直す」ではなく足す操作なので、修整モードに閉じ込めない。
+       独立したカードにして、計測一覧の下に埋もれないようにする。 */
+    + '<div class="card"><h3>同じ施設に区間を足す</h3>'
+    + '<div class="note">同じ建物の別の階段や、別ルートを区間として足せます。</div>'
+    + segAdder(sp)
     + '</div>'
 
     + '<div class="card"><h3>使わないとき</h3>'
@@ -1657,21 +1664,25 @@ function lazyRender(){
   },900);
 }
 
-function segAdder(sp){
+/* 隠した区間を戻すための行。区間の一覧側に出す。 */
+function hiddenSegs(sp){
   var o=D.ov(S,sp.id), hidden=Object.keys(o.segHide||{});
+  if(!hidden.length) return '';
   var base=(window.SEED||[]).concat(S.customSpots||[]).filter(function(x){return x.id===sp.id;})[0];
+  return '<div class="note">隠している区間：'
+    + hidden.map(function(id){
+        var g=(base&&base.segs||[]).filter(function(x){return x.id===id;})[0];
+        return '<button class="chip" data-showseg="'+id+'" style="margin:3px 4px 0 0">'
+          + esc(g?g.label:id)+' を戻す</button>'; }).join("")+'</div>';
+}
+function segAdder(sp){
   var d=ui.segDraft||{label:"",layers:"",steps:"",rise:"",height:""};
   var v={steps:num(d.steps),rise:num(d.rise),height:num(d.height),layers:num(d.layers)};
   var der=D.derive(v), warn=D.checkSeg(v);
   var f=D.floorHFor(S,sp);
   var h = num(d.height) || (num(d.steps)&&num(d.rise)? num(d.steps)*num(d.rise)/1000 : 0)
         || (num(d.layers)? num(d.layers)*f.v : 0);
-  return (hidden.length? '<div class="note">隠している区間：'
-      + hidden.map(function(id){
-          var g=(base&&base.segs||[]).filter(function(x){return x.id===id;})[0];
-          return '<button class="chip" data-showseg="'+id+'" style="margin:3px 4px 0 0">'
-            + esc(g?g.label:id)+' を戻す</button>'; }).join("")+'</div>' : '')
-    + '<div class="segadd"><div class="edh">区間を追加</div>'
+  return '<div class="segadd">'
     + '<div class="fr"><input class="aIn wide" data-k="label" type="text" value="'+esc(d.label)+'" placeholder="例：1F→17F"></div>'
     + '<div class="fr"><label>層数</label><input class="aIn" data-k="layers" type="number" inputmode="numeric" value="'+esc(d.layers)+'"><span class="u">層</span></div>'
     + '<div class="tri"><div><span>段数</span><input class="aIn'+(der.steps?" auto":"")+'" data-k="steps" type="number" inputmode="numeric" value="'+(d.steps||der.steps||"")+'"></div>'
