@@ -1081,7 +1081,12 @@ function vEdit(){
   var round=(ui.eRound==null?e.round:ui.eRound);
   var kc=Math.round((e.weightAtSave||S.weight)*meters*0.01*(round?1.3:1));
   return '<div class="card"><h3>'+esc(e.name)+'</h3>'
-    + '<div class="fr"><label>日付</label><input id="eDate" type="date" value="'+(ui.eDate||e.date)+'"></div>'
+    + '<div class="fr"><label>何日の記録にするか</label><input id="eDate" type="date" value="'+(ui.eDate||e.date)+'"></div>'
+    + (function(){ var ent=D.enteredLabel(e); if(!ent) return '';
+        return '<div class="fr"><label>記録した日時</label><span class="num" style="color:var(--muted)">'
+          + ent+'</span></div>'
+          + '<div class="note" style="margin-bottom:0">記録した日時は変えられません。'
+          + '集計に使うのは上の「何日の記録にするか」です。</div>'; })()
     + '<div class="fr"><label>本数</label><span class="stepper">'
     + '<button data-act="eMinus">−</button><input id="eReps" type="number" inputmode="numeric" value="'
     + (ui.eReps||e.reps)+'"><button data-act="ePlus">＋</button></span></div>'
@@ -1411,6 +1416,18 @@ function sAch(){
 }
 
 /* ===== S4 履歴 ===== */
+/* 記録1件の内訳。「何日の記録にするか」（見出しの日付）と「記録した日時」は別の情報。
+   その日のうちに入れた記録は先頭の時刻がそのまま記録日時なので、同じ値を二度出さない。
+   日付をまたいで入れた記録だけ、いつ入力したのかを添える。 */
+function entryLine(e){
+  var tm=D.timeOf(e);
+  return (tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · ')
+    + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
+    + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段'
+    + (D.enteredLater(e)&&D.enteredLabel(e)
+        ? '<span class="ent later">記録 '+D.enteredLabel(e)+'</span>' : '');
+}
+
 function vHistory(){
   if(!S.entries.length) return '<div class="empty">まだ記録がありません。<br>いちばん近い階段から始められます。</div>';
   var byDay={};
@@ -1424,16 +1441,14 @@ function vHistory(){
     var kc=list.reduce(function(a,e){return a+D.kcalOf(S,e);},0);
     var st=list.reduce(function(a,e){return a+D.stepsOf(S,e);},0);
     var DOW=["日","月","火","水","木","金","土"][new Date(dt+"T00:00:00").getDay()];
-    return '<div class="card"><h3>'+dt.slice(5).replace("-","/")+'（'+DOW+'） — '
+    var thisYear=String(new Date().getFullYear());
+    var head=(dt.slice(0,4)===thisYear? dt.slice(5) : dt).replace(/-/g,"/");
+    return '<div class="card"><h3>'+head+'（'+DOW+'） — '
       + fmt(sum)+'m ・ '+kc.toLocaleString()+'kcal ・ '+st.toLocaleString()+'段</h3>'
       + list.map(function(e){
         return '<div class="row"><span class="mk '+(e.cat==="boss"?"boss":"")+'"></span>'
           + '<span class="bd"><span class="nm">'+esc(e.name)+'</span>'
-          + '<span class="sb num">'
-          + (function(){ var tm=D.timeOf(e);
-              return tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · '; })()
-          + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
-          + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段</span></span>'
+          + '<span class="sb num">'+entryLine(e)+'</span></span>'
           + '<span class="vl num">'+fmt(e.meters)+'<i>m</i></span>'
           + '<button class="x" data-edit="'+e.id+'" aria-label="編集">✎</button>'
           + '<button class="x" data-del="'+e.id+'" aria-label="削除">×</button></div>'; }).join("")
@@ -1471,11 +1486,7 @@ function vDay(){
     + (list.length? list.map(function(e){
         return '<div class="row"><span class="mk '+(e.cat==="boss"?"boss":"")+'"></span>'
           + '<span class="bd"><span class="nm">'+esc(e.name)+'</span>'
-          + '<span class="sb num">'
-          + (function(){ var tm=D.timeOf(e);
-              return tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · '; })()
-          + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
-          + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段</span></span>'
+          + '<span class="sb num">'+entryLine(e)+'</span></span>'
           + '<span class="vl num">'+fmt(e.meters)+'<i>m</i></span></div>'; }).join("")
       : '<div class="empty">この日は記録がありません。</div>')
     + '</div>';
@@ -1867,8 +1878,11 @@ function commit(){
   picked.forEach(function(g){ var c=D.resolve(S,sp,g).conf; segs[g.id]=c;
     if(best===null||D.CONF_RANK[c]>D.CONF_RANK[best]) best=c; });
   var dt=ui.date||D.today();
+  /* date は「何日の記録にするか」、enteredAt は「いつ入力したか」。別の情報なので別に持つ。
+     createdAt は登った時刻の推定（過去日なら12:00）で、入力日時の代わりにはならない。 */
   var e={id:now,date:dt,createdAt:(dt===D.today()?new Date(now).toISOString():dt+"T12:00:00"),
-    createdAtEstimated:(dt!==D.today())||undefined, cond:(ui.rain?{rain:true}:undefined),
+    createdAtEstimated:(dt!==D.today())||undefined, enteredAt:new Date(now).toISOString(),
+    cond:(ui.rain?{rain:true}:undefined),
     spotId:sp.id,name:sp.name,segIds:picked.map(function(g){return g.id;}),
     unitM:unit,reps:reps,meters:meters,round:ui.round,cat:sp.cat,
     steps:Math.round(D.stepsForSegs(S,sp,picked)*reps),

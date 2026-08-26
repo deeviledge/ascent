@@ -617,3 +617,8 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
   padding:var(--s3);margin-bottom:var(--s2);}
 .sgval{font-size:var(--f-2xs);color:var(--muted);margin-top:6px;line-height:1.5;}
 .sgval b{color:var(--text-2);font-weight:700;}
+
+/* 記録した日時。「何日の記録にするか」とは別の情報なので、行内で分けて出す。 */
+.ent{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:4px;
+  background:var(--surface-2);color:var(--muted);font-size:var(--f-2xs);white-space:nowrap;}
+.ent.later{color:var(--text-2);}
