@@ -621,4 +621,5 @@ svg.twr{display:block;margin:var(--s3) auto 0;}
 /* 記録した日時。「何日の記録にするか」とは別の情報なので、行内で分けて出す。 */
 .ent{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:4px;
   background:var(--surface-2);color:var(--muted);font-size:var(--f-2xs);white-space:nowrap;}
-.ent.later{color:var(--text-2);}
+/* 登った日と違う日に入力した記録。あとから入れたものだと見分けられるようにする。 */
+.ent.later{color:var(--text-2);box-shadow:inset 2px 0 0 var(--orange);padding-left:8px;}

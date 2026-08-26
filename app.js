@@ -1416,16 +1416,16 @@ function sAch(){
 }
 
 /* ===== S4 履歴 ===== */
-/* 記録1件の内訳。「何日の記録にするか」（見出しの日付）と「記録した日時」は別の情報。
-   その日のうちに入れた記録は先頭の時刻がそのまま記録日時なので、同じ値を二度出さない。
-   日付をまたいで入れた記録だけ、いつ入力したのかを添える。 */
+/* 記録1件の内訳。「何日の記録にするか」（見出しの日付）と「記録した日時」は別の情報なので、
+   記録日時は一致していても必ず出す。ラベルが無いと、先頭の時刻がどちらの意味なのか
+   読み手には分からない。日付をまたいで入れた記録は色を強めて見分けられるようにする。 */
 function entryLine(e){
-  var tm=D.timeOf(e);
+  var tm=D.timeOf(e), ent=D.enteredLabel(e);
   return (tm? '<b class="tm">'+tm+'</b> · ' : '<span class="tm est">時刻不明</span> · ')
     + fmt(e.unitM)+'m × '+e.reps+(e.round?" · 往復":"")
     + ' · '+D.kcalOf(S,e)+'kcal · '+D.stepsOf(S,e)+'段'
-    + (D.enteredLater(e)&&D.enteredLabel(e)
-        ? '<span class="ent later">記録 '+D.enteredLabel(e)+'</span>' : '');
+    + (ent? '<span class="ent'+(D.enteredLater(e)?" later":"")+'">記録 '+ent+'</span>'
+          : '<span class="ent">記録日時なし</span>');
 }
 
 function vHistory(){
