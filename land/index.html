@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>土地分割シミュレーター</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#EDF1F2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="land.css">
+</head>
+<body>
+
+<!-- アイコン。外部ファイルへの <use> はモバイルで描画されないため、必ずインラインで持つ。 -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14H8"/></symbol>
+<symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9h-9a7 7 0 0 0 0 14h5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></symbol>
+<symbol id="i-fit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 6V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16z"/><path d="m14 6 4 4"/></symbol>
+</defs></svg>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <header id="top">
+    <button class="ico" id="btn-menu" aria-label="メニュー"><svg><use href="#i-menu"/></svg></button>
+    <div class="modes" role="tablist" aria-label="モード">
+      <button data-mode="dim" role="tab">寸法モード</button>
+      <button data-mode="div" role="tab">分割モード</button>
+    </div>
+    <button class="ico" id="btn-undo" aria-label="元に戻す"><svg><use href="#i-undo"/></svg></button>
+    <button class="ico" id="btn-redo" aria-label="やり直す"><svg><use href="#i-redo"/></svg></button>
+  </header>
+
+  <div id="zoombox">
+    <button class="ico" id="btn-zin" aria-label="拡大"><svg><use href="#i-plus"/></svg></button>
+    <button class="ico" id="btn-zout" aria-label="縮小"><svg><use href="#i-minus"/></svg></button>
+    <button class="ico" id="btn-fit" aria-label="全体を表示"><svg><use href="#i-fit"/></svg></button>
+  </div>
+
+  <div id="scalebar"><i></i><span></span></div>
+  <div id="tip" hidden></div>
+
+  <footer id="dock">
+    <button id="grip" aria-label="パネルの開閉"><span></span></button>
+    <div class="tools" id="tools"></div>
+    <div class="panel" id="panel"></div>
+  </footer>
+</div>
+
+<div id="sheet" hidden></div>
+<div id="modal" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<script src="land.js"></script>
+</body>
+</html>

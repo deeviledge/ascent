@@ -1,7 +1,7 @@
 /* Ascent Log service worker
    静的ファイルは cache-first。電波が悪くても、また圏外でも即座に起動する。
    ファイルを追加したら FILES に追記し、CACHE の番号を必ず上げること。 */
-const CACHE = "ascent-v48";
+const CACHE = "ascent-v49";
 const FILES = [
   "./",
   "./index.html",
@@ -16,7 +16,13 @@ const FILES = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-maskable.png"
+  "./icon-maskable.png",
+  "./land/index.html",
+  "./land/land.css",
+  "./land/land.js",
+  "./land/manifest.json",
+  "./land/icon-192.png",
+  "./land/icon-512.png"
 ];
 
 self.addEventListener("install", e => {
