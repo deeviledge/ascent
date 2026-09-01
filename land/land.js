@@ -1337,7 +1337,8 @@ function toggle(text, key) {
 }
 function applyTheme() {
   document.documentElement.dataset.theme = ui.theme === "dark" ? "dark" : "light";
-  document.querySelector('meta[name=theme-color]').content = ui.theme === "dark" ? "#0B1220" : "#EDF1F2";
+  const mt = document.querySelector('meta[name="theme-color"]');
+  if (mt) mt.content = ui.theme === "dark" ? "#0B1220" : "#EDF1F2";
   readTheme(); draw();
 }
 function reset() {
@@ -1421,17 +1422,31 @@ function exportPng() {
   draw();
 
   const url = off.toDataURL("image/png");
+  const name = (plan().name || "分割案") + ".png";
   const box = el("div");
   box.appendChild(el("h2", "", "書き出し"));
   const im = el("img", "shot"); im.src = url; box.appendChild(im);
-  box.appendChild(el("p", "hint", "画像を長押し（PC は右クリック）で保存できます。"));
+  box.appendChild(el("p", "hint", "画像を長押し（PC は右クリック）でも保存できます。"));
   const acts = el("div", "acts");
-  const a = document.createElement("a");
-  a.className = "btn pri"; a.textContent = "保存"; a.href = url; a.style.textAlign = "center";
-  a.download = (plan().name || "分割案") + ".png";
-  acts.appendChild(btn("閉じる", "", closeModal)); acts.appendChild(a);
+  acts.appendChild(btn("閉じる", "", closeModal));
+  acts.appendChild(btn("保存", "pri", () => savePng(off, url, name)));
   box.appendChild(acts);
   openModal(box);
+}
+/* 保存の口は場所によって違う。埋め込みで開かれている時は、そちらの保存を通す。 */
+async function savePng(canvas, url, name) {
+  let dl = null;
+  try { if (window.claude && window.claude.use) dl = await window.claude.use("downloads"); } catch (e) {}
+  if (dl) {
+    const blob = await new Promise(r => canvas.toBlob(r, "image/png"));
+    if (!blob) return toast("画像を作れませんでした");
+    try { await dl.save({ filename: name, data: blob }); toast("保存しました"); }
+    catch (e) { if (!e || e.code !== "declined") toast("保存できませんでした"); }
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ============================ 起動 ============================ */
@@ -1478,6 +1493,8 @@ function wire() {
 
 function boot() {
   const had = load();
+  /* 初回だけ端末の設定に従う。以降はメニューでの選択を覚える。 */
+  if (!had && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ui.theme = "dark";
   applyTheme();
   if (!had) ui.sel = doc.plans[0].parcels[0].id;
   if (doc.siteName) SITE.name = doc.siteName;
